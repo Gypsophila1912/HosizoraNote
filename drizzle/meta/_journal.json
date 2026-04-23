@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1776946220780,
+      "tag": "0000_milky_thunderbolts",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1776950045993,
+      "tag": "0001_lying_living_lightning",
+      "breakpoints": true
+    }
+  ]
+}
