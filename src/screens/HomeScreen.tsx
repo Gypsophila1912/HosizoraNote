@@ -5,18 +5,24 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
+  Alert,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import { useState } from "react";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useMessages } from "@/hooks/useMessages";
-import { Message } from "@/db/repositories/messageRepository";
+import { useNavigation } from "@react-navigation/native";
+import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import { TabParamList } from "@/navigation/types";
+import { useThought } from "@/hooks/useThought";
+import { Node } from "@/db/repositories/nodeRepository";
+
+type Nav = BottomTabNavigationProp<TabParamList>;
 
 export default function HomeScreen() {
-  const { messages, sendMessage, loading } = useMessages();
+  const navigation = useNavigation<Nav>();
+  const { title, nodes, changeTitle, sendMessage, complete, resetThought } =
+    useThought();
   const [inputText, setInputText] = useState("");
-  const insets = useSafeAreaInsets(); // ← 追加
 
   const handleSend = async () => {
     if (!inputText.trim()) return;
@@ -24,9 +30,25 @@ export default function HomeScreen() {
     setInputText("");
   };
 
-  const renderItem = ({ item }: { item: Message }) => (
+  const handleComplete = async () => {
+    await complete();
+    navigation.navigate("Setting"); // 一覧画面ができたら変更
+  };
+
+  const handleReset = () => {
+    Alert.alert("リセット", "入力内容をすべて削除しますか？", [
+      { text: "キャンセル", style: "cancel" },
+      {
+        text: "削除",
+        style: "destructive",
+        onPress: async () => await resetThought(),
+      },
+    ]);
+  };
+
+  const renderItem = ({ item }: { item: Node }) => (
     <View style={styles.messageBubble}>
-      <Text style={styles.messageText}>{item.content}</Text>
+      <Text style={styles.messageText}>{item.text}</Text>
       <Text style={styles.messageTime}>
         {new Date(item.createdAt).toLocaleTimeString("ja-JP", {
           hour: "2-digit",
@@ -42,19 +64,37 @@ export default function HomeScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 85}
     >
+      {/* ヘッダー */}
+      <View style={styles.header}>
+        <TextInput
+          style={styles.titleInput}
+          value={title}
+          onChangeText={changeTitle}
+          placeholder="タイトルを入力..."
+          placeholderTextColor="#9E9E9E"
+        />
+        <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
+          <Text style={styles.resetButtonText}>リセット</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.completeButton}
+          onPress={handleComplete}
+        >
+          <Text style={styles.completeButtonText}>完了</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* メッセージ一覧 */}
       <FlatList
-        data={messages}
+        data={[...nodes].reverse()}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
         contentContainerStyle={styles.messageList}
         inverted
       />
-      <View
-        style={[
-          styles.inputContainer,
-          { paddingBottom: 12 }, // シンプルに固定
-        ]}
-      >
+
+      {/* 入力欄 */}
+      <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
           value={inputText}
@@ -62,11 +102,7 @@ export default function HomeScreen() {
           placeholder="メッセージを入力..."
           multiline
         />
-        <TouchableOpacity
-          style={[styles.sendButton, loading && styles.sendButtonDisabled]}
-          onPress={handleSend}
-          disabled={loading}
-        >
+        <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
           <Text style={styles.sendButtonText}>送信</Text>
         </TouchableOpacity>
       </View>
@@ -79,6 +115,46 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+    gap: 8,
+  },
+  titleInput: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#212121",
+    paddingVertical: 4,
+  },
+  resetButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "#f5f5f5",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  resetButtonText: {
+    fontSize: 13,
+    color: "#9E9E9E",
+  },
+  completeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "#5C6BC0",
+  },
+  completeButtonText: {
+    fontSize: 13,
+    color: "#fff",
+    fontWeight: "700",
+  },
   messageList: {
     padding: 16,
     gap: 8,
@@ -89,10 +165,6 @@ const styles = StyleSheet.create({
     padding: 12,
     maxWidth: "80%",
     alignSelf: "flex-end",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
     elevation: 2,
   },
   messageText: {
@@ -107,9 +179,7 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flexDirection: "row",
-    paddingTop: 12,
-    paddingHorizontal: 12,
-    paddingBottom: 12, // useSafeAreaInsets で上書きされる
+    padding: 12,
     backgroundColor: "#fff",
     borderTopWidth: 1,
     borderTopColor: "#e0e0e0",
@@ -132,9 +202,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 10,
-  },
-  sendButtonDisabled: {
-    backgroundColor: "#9E9E9E",
   },
   sendButtonText: {
     color: "#fff",
