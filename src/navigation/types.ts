@@ -5,7 +5,10 @@ export type TabParamList = {
 
 export type HomeStackParamList = {
   Home: undefined;
-  Detail: undefined;
+  Detail: {
+    thoughtId: number;
+    parentNodeId: number; // このノードへの返信スレッドを表示する
+  };
 };
 
 export type SettingStackParamList = {
