@@ -1,5 +1,6 @@
 export type TabParamList = {
   Home: undefined;
+  ThoughtSelect: undefined;
   Setting: undefined;
 };
 
@@ -7,7 +8,14 @@ export type HomeStackParamList = {
   Home: undefined;
   Detail: {
     thoughtId: number;
-    parentNodeId: number; // このノードへの返信スレッドを表示する
+    parentNodeId: number;
+  };
+};
+
+export type ThoughtSelectStackParamList = {
+  ThoughtSelect: undefined;
+  ThoughtView: {
+    thoughtId: number;
   };
 };
 
