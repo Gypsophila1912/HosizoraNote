@@ -72,7 +72,7 @@ function SwipeableMessage({
         <Text style={styles.swipeHintText}>分岐</Text>
       </View>
       <Animated.View
-        style={{ transform: [{ translateX }] }}
+        style={{ transform: [{ translateX }], alignSelf: "stretch" }}
         {...panResponder.panHandlers}
       >
         <View style={styles.messageBubble}>
@@ -114,6 +114,32 @@ export default function HomeScreen() {
     if (n.parentId != null) acc[n.parentId] = (acc[n.parentId] ?? 0) + 1;
     return acc;
   }, {});
+
+  // HomeScreen.tsx の childCountMap の下あたりに追加
+
+  /** ルートから末端まで「本筋」ノードをたどる */
+  const getMainThread = (nodes: Node[]): Node[] => {
+    const childrenMap: Record<number, Node[]> = {};
+    for (const n of nodes) {
+      if (n.parentId != null) {
+        childrenMap[n.parentId] = [...(childrenMap[n.parentId] ?? []), n];
+      }
+    }
+
+    const thread: Node[] = [];
+    // parentId===nullのノードは1件だけのはず（最初のメッセージ）
+    let current: Node | undefined = nodes.find((n) => n.parentId == null);
+    while (current) {
+      thread.push(current);
+      const children = childrenMap[current.id] ?? [];
+      // 本筋 = 最初に作られた子（または子が1つだけ）
+      current = children.sort((a, b) => a.createdAt - b.createdAt)[0];
+    }
+    return thread;
+  };
+
+  // FlatListのdataを変更
+  const mainThread = getMainThread(nodes);
 
   const rootNodes = nodes.filter((n) => n.parentId == null);
 
@@ -193,7 +219,7 @@ export default function HomeScreen() {
             value={title}
             onChangeText={changeTitle}
             placeholder="タイトルを入力..."
-            placeholderTextColor="#9E9E9E"
+            placeholderTextColor="#475569"
           />
           <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
             <Text style={styles.resetButtonText}>リセット</Text>
@@ -207,7 +233,7 @@ export default function HomeScreen() {
         </View>
 
         <FlatList
-          data={[...rootNodes].reverse()}
+          data={[...mainThread].reverse()}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderItem}
           contentContainerStyle={styles.messageList}
@@ -239,25 +265,22 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  container: { flex: 1, backgroundColor: "#080c18" },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "#0d1225",
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "rgba(167,139,250,0.2)",
     gap: 8,
   },
-  hamburgerButton: {
-    justifyContent: "center",
-    paddingRight: 4,
-  },
+  hamburgerButton: { justifyContent: "center", paddingRight: 4 },
   hamburgerLine: {
     width: 20,
     height: 2,
-    backgroundColor: "#5C6BC0",
+    backgroundColor: "#a78bfa",
     borderRadius: 1,
     marginVertical: 2,
   },
@@ -265,23 +288,23 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: "600",
-    color: "#212121",
+    color: "#e2e8f0",
     paddingVertical: 4,
   },
   resetButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "rgba(255,255,255,0.05)",
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: "rgba(255,255,255,0.1)",
   },
-  resetButtonText: { fontSize: 13, color: "#9E9E9E" },
+  resetButtonText: { fontSize: 13, color: "#64748b" },
   completeButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: "#5C6BC0",
+    backgroundColor: "#a78bfa",
   },
   completeButtonText: { fontSize: 13, color: "#fff", fontWeight: "700" },
   messageList: { padding: 16, gap: 8 },
@@ -292,21 +315,22 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 64,
-    backgroundColor: "#5C6BC0",
+    backgroundColor: "#7c3aed",
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   swipeHintText: { color: "#fff", fontSize: 12, fontWeight: "700" },
   messageBubble: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderRadius: 16,
     padding: 12,
     maxWidth: "80%",
-    alignSelf: "flex-end",
-    elevation: 2,
+    alignSelf: "stretch",
+    borderWidth: 1,
+    borderColor: "rgba(167,139,250,0.2)",
   },
-  messageText: { fontSize: 16, color: "#212121" },
+  messageText: { fontSize: 16, color: "#e2e8f0" },
   messageMeta: {
     flexDirection: "row",
     alignItems: "center",
@@ -314,36 +338,37 @@ const styles = StyleSheet.create({
     gap: 8,
     alignSelf: "flex-end",
   },
-  messageTime: { fontSize: 11, color: "#9E9E9E" },
+  messageTime: { fontSize: 11, color: "#64748b" },
   branchBadge: {
-    backgroundColor: "#EDE7F6",
+    backgroundColor: "rgba(167,139,250,0.2)",
     borderRadius: 8,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  branchBadgeText: { fontSize: 11, color: "#5C6BC0", fontWeight: "600" },
+  branchBadgeText: { fontSize: 11, color: "#a78bfa", fontWeight: "600" },
   inputContainer: {
     flexDirection: "row",
     padding: 12,
-    backgroundColor: "#fff",
+    backgroundColor: "#0d1225",
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
+    borderTopColor: "rgba(167,139,250,0.15)",
     gap: 8,
     alignItems: "flex-end",
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: "rgba(167,139,250,0.25)",
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
     fontSize: 16,
     maxHeight: 100,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    color: "#e2e8f0",
   },
   sendButton: {
-    backgroundColor: "#5C6BC0",
+    backgroundColor: "#a78bfa",
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 10,

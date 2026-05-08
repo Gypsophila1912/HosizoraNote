@@ -38,15 +38,31 @@ export const useThought = () => {
   }, [currentThoughtId, title, setCurrentThoughtId]);
 
   /** ルートレベルへのメッセージ送信（HomeScreen用） */
+  // useThought.ts
+
   const sendMessage = useCallback(
     async (text: string, parentId?: number) => {
       if (!text.trim()) return;
       const thoughtId = await ensureThought();
-      await addNode(thoughtId, text, parentId);
+
+      let resolvedParentId = parentId;
+      if (resolvedParentId === undefined) {
+        // DBから直接取得してstale closureを回避
+        const allNodes = await getNodesByThoughtId(thoughtId);
+        const rootNodes = allNodes.filter((n) => n.parentId == null);
+        if (rootNodes.length > 0) {
+          const lastRoot = rootNodes.reduce((a, b) =>
+            a.createdAt > b.createdAt ? a : b,
+          );
+          resolvedParentId = lastRoot.id;
+        }
+      }
+
+      await addNode(thoughtId, text, resolvedParentId);
       const updated = await getNodesByThoughtId(thoughtId);
       setNodes(updated);
     },
-    [ensureThought, setNodes],
+    [ensureThought, setNodes], // nodesを依存から外せる
   );
 
   /**

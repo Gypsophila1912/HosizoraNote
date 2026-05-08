@@ -43,16 +43,38 @@ const SCALE_MAX = 6;
 type LayoutNode = { node: Node; x: number; y: number; children: LayoutNode[] };
 type Edge = { px: number; py: number; cx: number; cy: number };
 
-function subtreeWidth(
+// 本筋（最初の子）かどうかを判定するユーティリティ
+function getMainChild(
+  nodeId: number,
+  childMap: Record<number, Node[]>,
+): Node | undefined {
+  const children = (childMap[nodeId] ?? [])
+    .slice()
+    .sort((a, b) => a.createdAt - b.createdAt);
+  return children[0]; // 最初に作られた子 = 本筋
+}
+
+function getBranchChildren(
+  nodeId: number,
+  childMap: Record<number, Node[]>,
+): Node[] {
+  const children = (childMap[nodeId] ?? [])
+    .slice()
+    .sort((a, b) => a.createdAt - b.createdAt);
+  return children.slice(1); // 2番目以降 = 分岐
+}
+
+// 分岐サブツリーの横幅だけ計算（本筋は縦なので幅に含めない）
+function branchSubtreeWidth(
   nodeId: number,
   childMap: Record<number, Node[]>,
 ): number {
-  const children = childMap[nodeId] ?? [];
-  if (children.length === 0) return NODE_W;
+  const branches = getBranchChildren(nodeId, childMap);
+  if (branches.length === 0) return NODE_W;
   return Math.max(
     NODE_W,
-    children.reduce(
-      (sum, c) => sum + subtreeWidth(c.id, childMap) + H_GAP,
+    branches.reduce(
+      (sum, c) => sum + branchSubtreeWidth(c.id, childMap) + H_GAP,
       -H_GAP,
     ),
   );
@@ -64,22 +86,34 @@ function assignPositions(
   topY: number,
   childMap: Record<number, Node[]>,
 ): LayoutNode {
-  const children = childMap[node.id] ?? [];
-  const totalW = children.reduce(
-    (sum, c) => sum + subtreeWidth(c.id, childMap) + H_GAP,
-    -H_GAP,
-  );
-  let curX = centerX - totalW / 2;
+  const mainChild = getMainChild(node.id, childMap);
+  const branchChildren = getBranchChildren(node.id, childMap);
+
+  const layoutChildren: LayoutNode[] = [];
   const childY = topY + NODE_H + V_GAP;
-  const layoutChildren = children.map((c) => {
-    const cw = subtreeWidth(c.id, childMap);
-    const cx2 = curX + cw / 2;
-    curX += cw + H_GAP;
-    return assignPositions(c, cx2, childY, childMap);
-  });
+
+  // 本筋の子：同じcenterXで真下に
+  if (mainChild) {
+    layoutChildren.push(assignPositions(mainChild, centerX, childY, childMap));
+  }
+
+  // 分岐の子：本筋の右側に横並び
+  if (branchChildren.length > 0) {
+    const totalBranchW = branchChildren.reduce(
+      (sum, c) => sum + branchSubtreeWidth(c.id, childMap) + H_GAP,
+      -H_GAP,
+    );
+    // 本筋ノードの右端 + GAP から開始
+    let curX = centerX + NODE_W / 2 + H_GAP * 2;
+    for (const bc of branchChildren) {
+      const bw = branchSubtreeWidth(bc.id, childMap);
+      layoutChildren.push(assignPositions(bc, curX + bw / 2, childY, childMap));
+      curX += bw + H_GAP;
+    }
+  }
+
   return { node, x: centerX, y: topY, children: layoutChildren };
 }
-
 function flattenTree(root: LayoutNode): LayoutNode[] {
   return [root, ...root.children.flatMap(flattenTree)];
 }
@@ -97,7 +131,7 @@ function ConnectorLine({ px, py, cx, cy }: Edge) {
   const midY = (py + cy) / 2;
   const left = Math.min(px, cx);
   const lineW = Math.abs(px - cx);
-  const COLOR = "#C5CAE9";
+  const COLOR = "rgba(167,139,250,0.4)";
   const T = 1.5;
   return (
     <>
@@ -139,9 +173,17 @@ function ConnectorLine({ px, py, cx, cy }: Edge) {
 
 // ── ノードカード ────────────────────────────────────────────────
 
-function NodeCard({ ln }: { ln: LayoutNode }) {
+function NodeCard({
+  ln,
+  mainChildIds,
+}: {
+  ln: LayoutNode;
+  mainChildIds: Set<number>;
+}) {
   const { node, x, y } = ln;
   const isRoot = node.parentId == null;
+  const isMain = isRoot || mainChildIds.has(node.id);
+
   return (
     <View
       style={[
@@ -153,13 +195,14 @@ function NodeCard({ ln }: { ln: LayoutNode }) {
           width: NODE_W,
           height: NODE_H,
         },
+        isMain && card.mainBox,
         isRoot && card.rootBox,
       ]}
     >
-      <Text style={[card.text, isRoot && card.rootText]} numberOfLines={3}>
+      <Text style={[card.text, isMain && card.mainText]} numberOfLines={3}>
         {node.text}
       </Text>
-      <Text style={[card.time, isRoot && card.rootTime]}>
+      <Text style={[card.time, isMain && card.mainTime]}>
         {new Date(node.createdAt).toLocaleTimeString("ja-JP", {
           hour: "2-digit",
           minute: "2-digit",
@@ -168,7 +211,6 @@ function NodeCard({ ln }: { ln: LayoutNode }) {
     </View>
   );
 }
-
 // ── ZoomableCanvas ──────────────────────────────────────────────
 
 function ZoomableCanvas({
@@ -267,6 +309,18 @@ function ZoomableCanvas({
       baseTy.current = panBaseTy.current + e.translationY;
     }
   };
+  const mainChildIds = new Set<number>();
+  const collectMainIds = (nodes: Node[]) => {
+    const map: Record<number, Node[]> = {};
+    for (const n of nodes) {
+      if (n.parentId != null) (map[n.parentId] ??= []).push(n);
+    }
+    for (const children of Object.values(map)) {
+      const sorted = children.slice().sort((a, b) => a.createdAt - b.createdAt);
+      if (sorted[0]) mainChildIds.add(sorted[0].id);
+    }
+  };
+  collectMainIds(nodes);
 
   return (
     <View style={{ flex: 1, overflow: "hidden" }}>
@@ -301,7 +355,11 @@ function ZoomableCanvas({
                   <ConnectorLine key={i} {...e} />
                 ))}
                 {allLayoutNodes.map((ln) => (
-                  <NodeCard key={ln.node.id} ln={ln} />
+                  <NodeCard
+                    key={ln.node.id}
+                    ln={ln}
+                    mainChildIds={mainChildIds}
+                  />
                 ))}
               </Animated.View>
             </Animated.View>
@@ -432,39 +490,48 @@ export default function ThoughtViewScreen() {
 // ── スタイル ────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f0f0f8" },
-  headerLayer: { zIndex: 10, elevation: 10, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: "#080c18" },
+  headerLayer: { zIndex: 10, elevation: 10, backgroundColor: "#0d1225" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  emptyText: { color: "#9E9E9E", fontSize: 14 },
+  emptyText: { color: "#64748b", fontSize: 14 },
   metaCard: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "rgba(167,139,250,0.2)",
   },
-  metaTitle: { fontSize: 17, fontWeight: "700", color: "#212121" },
-  metaDate: { fontSize: 12, color: "#9E9E9E", marginTop: 4 },
+  metaTitle: { fontSize: 17, fontWeight: "700", color: "#e2e8f0" },
+  metaDate: { fontSize: 12, color: "#64748b", marginTop: 4 },
   hint: {
     alignItems: "center",
     paddingVertical: 4,
-    backgroundColor: "#EDE7F6",
+    backgroundColor: "rgba(167,139,250,0.08)",
   },
-  hintText: { fontSize: 11, color: "#7986CB" },
+  hintText: { fontSize: 11, color: "#a78bfa" },
 });
 
 const card = StyleSheet.create({
   box: {
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.07)",
     borderRadius: 10,
     padding: 8,
-    elevation: 3,
     borderWidth: 1,
-    borderColor: "#E8EAF6",
+    borderColor: "rgba(167,139,250,0.2)",
     justifyContent: "space-between",
   },
-  rootBox: { backgroundColor: "#5C6BC0", borderColor: "#3949AB" },
-  text: { fontSize: 12, color: "#212121", lineHeight: 16 },
+  mainBox: {
+    backgroundColor: "rgba(167,139,250,0.15)",
+    borderColor: "rgba(167,139,250,0.5)",
+  },
+  rootBox: {
+    backgroundColor: "rgba(167,139,250,0.35)",
+    borderColor: "#a78bfa",
+    borderWidth: 2,
+  },
+  text: { fontSize: 12, color: "#e2e8f0", lineHeight: 16 },
+  mainText: { color: "#fff" },
   rootText: { color: "#fff", fontWeight: "600" },
-  time: { fontSize: 10, color: "#9E9E9E", alignSelf: "flex-end" },
-  rootTime: { color: "#C5CAE9" },
+  time: { fontSize: 10, color: "#64748b", alignSelf: "flex-end" },
+  mainTime: { color: "#c4b5fd" },
+  rootTime: { color: "#c4b5fd" },
 });

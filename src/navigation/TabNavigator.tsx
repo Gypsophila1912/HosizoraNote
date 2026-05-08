@@ -40,8 +40,17 @@ export default function TabNavigator() {
         },
         tabBarLabel: LABELS[route.name],
         headerShown: false,
-        tabBarActiveTintColor: "#5C6BC0",
-        tabBarInactiveTintColor: "#9E9E9E",
+        tabBarActiveTintColor: "#a78bfa",
+        tabBarInactiveTintColor: "#64748b",
+        tabBarStyle: {
+          backgroundColor: "#0d1225",
+          borderTopColor: "rgba(167,139,250,0.15)",
+          borderTopWidth: 1,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600",
+        },
       })}
     >
       <Tab.Screen name="Home" component={HomeStackNavigator} />
