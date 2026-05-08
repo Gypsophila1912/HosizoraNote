@@ -44,25 +44,11 @@ export const useThought = () => {
     async (text: string, parentId?: number) => {
       if (!text.trim()) return;
       const thoughtId = await ensureThought();
-
-      let resolvedParentId = parentId;
-      if (resolvedParentId === undefined) {
-        // DBから直接取得してstale closureを回避
-        const allNodes = await getNodesByThoughtId(thoughtId);
-        const rootNodes = allNodes.filter((n) => n.parentId == null);
-        if (rootNodes.length > 0) {
-          const lastRoot = rootNodes.reduce((a, b) =>
-            a.createdAt > b.createdAt ? a : b,
-          );
-          resolvedParentId = lastRoot.id;
-        }
-      }
-
-      await addNode(thoughtId, text, resolvedParentId);
+      await addNode(thoughtId, text, parentId ?? undefined);
       const updated = await getNodesByThoughtId(thoughtId);
       setNodes(updated);
     },
-    [ensureThought, setNodes], // nodesを依存から外せる
+    [ensureThought, setNodes],
   );
 
   /**

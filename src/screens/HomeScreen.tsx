@@ -118,31 +118,8 @@ export default function HomeScreen() {
   // HomeScreen.tsx の childCountMap の下あたりに追加
 
   /** ルートから末端まで「本筋」ノードをたどる */
-  const getMainThread = (nodes: Node[]): Node[] => {
-    const childrenMap: Record<number, Node[]> = {};
-    for (const n of nodes) {
-      if (n.parentId != null) {
-        childrenMap[n.parentId] = [...(childrenMap[n.parentId] ?? []), n];
-      }
-    }
-
-    const thread: Node[] = [];
-    // parentId===nullのノードは1件だけのはず（最初のメッセージ）
-    let current: Node | undefined = nodes.find((n) => n.parentId == null);
-    while (current) {
-      thread.push(current);
-      const children = childrenMap[current.id] ?? [];
-      // 本筋 = 最初に作られた子（または子が1つだけ）
-      current = children.sort((a, b) => a.createdAt - b.createdAt)[0];
-    }
-    return thread;
-  };
-
-  // FlatListのdataを変更
-  const mainThread = getMainThread(nodes);
 
   const rootNodes = nodes.filter((n) => n.parentId == null);
-
   const handleSend = async () => {
     if (!inputText.trim()) return;
     await sendMessage(inputText);
@@ -233,7 +210,7 @@ export default function HomeScreen() {
         </View>
 
         <FlatList
-          data={[...mainThread].reverse()}
+          data={[...rootNodes].reverse()}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderItem}
           contentContainerStyle={styles.messageList}

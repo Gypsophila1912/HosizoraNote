@@ -38,33 +38,31 @@ const SCREEN = Dimensions.get("window");
 const SCALE_MIN = 0.15;
 const SCALE_MAX = 6;
 
-// ── ツリーレイアウト計算 ────────────────────────────────────────
-
+// ── 型 ──────────────────────────────────────────────────────────
 type LayoutNode = { node: Node; x: number; y: number; children: LayoutNode[] };
 type Edge = { px: number; py: number; cx: number; cy: number };
 
-// 本筋（最初の子）かどうかを判定するユーティリティ
+// ── ツリーレイアウト計算 ────────────────────────────────────────
+
 function getMainChild(
   nodeId: number,
   childMap: Record<number, Node[]>,
 ): Node | undefined {
-  const children = (childMap[nodeId] ?? [])
+  return (childMap[nodeId] ?? [])
     .slice()
-    .sort((a, b) => a.createdAt - b.createdAt);
-  return children[0]; // 最初に作られた子 = 本筋
+    .sort((a, b) => a.createdAt - b.createdAt)[0];
 }
 
 function getBranchChildren(
   nodeId: number,
   childMap: Record<number, Node[]>,
 ): Node[] {
-  const children = (childMap[nodeId] ?? [])
+  return (childMap[nodeId] ?? [])
     .slice()
-    .sort((a, b) => a.createdAt - b.createdAt);
-  return children.slice(1); // 2番目以降 = 分岐
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .slice(1);
 }
 
-// 分岐サブツリーの横幅だけ計算（本筋は縦なので幅に含めない）
 function branchSubtreeWidth(
   nodeId: number,
   childMap: Record<number, Node[]>,
@@ -86,34 +84,26 @@ function assignPositions(
   topY: number,
   childMap: Record<number, Node[]>,
 ): LayoutNode {
-  const mainChild = getMainChild(node.id, childMap);
-  const branchChildren = getBranchChildren(node.id, childMap);
+  const children = (childMap[node.id] ?? [])
+    .slice()
+    .sort((a, b) => a.createdAt - b.createdAt);
 
   const layoutChildren: LayoutNode[] = [];
   const childY = topY + NODE_H + V_GAP;
 
-  // 本筋の子：同じcenterXで真下に
-  if (mainChild) {
-    layoutChildren.push(assignPositions(mainChild, centerX, childY, childMap));
-  }
-
-  // 分岐の子：本筋の右側に横並び
-  if (branchChildren.length > 0) {
-    const totalBranchW = branchChildren.reduce(
-      (sum, c) => sum + branchSubtreeWidth(c.id, childMap) + H_GAP,
-      -H_GAP,
-    );
-    // 本筋ノードの右端 + GAP から開始
+  // 全子ノードを右側に横並び（分岐扱い）
+  if (children.length > 0) {
     let curX = centerX + NODE_W / 2 + H_GAP * 2;
-    for (const bc of branchChildren) {
-      const bw = branchSubtreeWidth(bc.id, childMap);
-      layoutChildren.push(assignPositions(bc, curX + bw / 2, childY, childMap));
+    for (const c of children) {
+      const bw = branchSubtreeWidth(c.id, childMap);
+      layoutChildren.push(assignPositions(c, curX + bw / 2, childY, childMap));
       curX += bw + H_GAP;
     }
   }
 
   return { node, x: centerX, y: topY, children: layoutChildren };
 }
+
 function flattenTree(root: LayoutNode): LayoutNode[] {
   return [root, ...root.children.flatMap(flattenTree)];
 }
@@ -123,6 +113,19 @@ function flattenEdges(root: LayoutNode): Edge[] {
     { px: root.x, py: root.y + NODE_H, cx: child.x, cy: child.y },
     ...flattenEdges(child),
   ]);
+}
+
+function buildMainChildIds(nodes: Node[]): Set<number> {
+  const map: Record<number, Node[]> = {};
+  for (const n of nodes) {
+    if (n.parentId != null) (map[n.parentId] ??= []).push(n);
+  }
+  const ids = new Set<number>();
+  for (const children of Object.values(map)) {
+    const sorted = children.slice().sort((a, b) => a.createdAt - b.createdAt);
+    if (sorted[0]) ids.add(sorted[0].id);
+  }
+  return ids;
 }
 
 // ── 折れ線コネクター ────────────────────────────────────────────
@@ -173,16 +176,9 @@ function ConnectorLine({ px, py, cx, cy }: Edge) {
 
 // ── ノードカード ────────────────────────────────────────────────
 
-function NodeCard({
-  ln,
-  mainChildIds,
-}: {
-  ln: LayoutNode;
-  mainChildIds: Set<number>;
-}) {
+function NodeCard({ ln }: { ln: LayoutNode }) {
   const { node, x, y } = ln;
-  const isRoot = node.parentId == null;
-  const isMain = isRoot || mainChildIds.has(node.id);
+  const isRoot = node.parentId == null; // rootNode = 本筋
 
   return (
     <View
@@ -195,14 +191,13 @@ function NodeCard({
           width: NODE_W,
           height: NODE_H,
         },
-        isMain && card.mainBox,
         isRoot && card.rootBox,
       ]}
     >
-      <Text style={[card.text, isMain && card.mainText]} numberOfLines={3}>
+      <Text style={[card.text, isRoot && card.rootText]} numberOfLines={3}>
         {node.text}
       </Text>
-      <Text style={[card.time, isMain && card.mainTime]}>
+      <Text style={[card.time, isRoot && card.rootTime]}>
         {new Date(node.createdAt).toLocaleTimeString("ja-JP", {
           hour: "2-digit",
           minute: "2-digit",
@@ -218,67 +213,49 @@ function ZoomableCanvas({
   canvasH,
   allLayoutNodes,
   allEdges,
+  mainChildIds,
 }: {
   canvasW: number;
   canvasH: number;
   allLayoutNodes: LayoutNode[];
   allEdges: Edge[];
+  mainChildIds: Set<number>;
 }) {
-  // 確定値（ジェスチャー終了後に保存）
   const baseScale = useRef(1);
   const baseTx = useRef(0);
   const baseTy = useRef(0);
-
-  // Animated.Value（描画用）
   const animScale = useRef(new Animated.Value(1)).current;
   const animTx = useRef(new Animated.Value(0)).current;
   const animTy = useRef(new Animated.Value(0)).current;
-
-  // ピンチ開始時の確定値スナップショット
   const pinchBaseScale = useRef(1);
   const pinchBaseTx = useRef(0);
   const pinchBaseTy = useRef(0);
-
-  // パン開始時のスナップショット
   const panBaseTx = useRef(0);
   const panBaseTy = useRef(0);
-
   const pinchRef = useRef(null);
   const panRef = useRef(null);
 
-  // ── ピンチハンドラー ──
   const onPinchEvent = (event: any) => {
     const e = event.nativeEvent;
-    // e.scale    : 開始時からの累積スケール倍率
-    // e.focalX/Y : 指の中点（スクリーン座標）
     const newScale = Math.min(
       Math.max(pinchBaseScale.current * e.scale, SCALE_MIN),
       SCALE_MAX,
     );
-
-    // focalX/Y のスクリーン座標がキャンバス上のどこか（ピンチ開始時の変換で）
     const canvasX = (e.focalX - pinchBaseTx.current) / pinchBaseScale.current;
     const canvasY = (e.focalY - pinchBaseTy.current) / pinchBaseScale.current;
-
-    // 新スケールで同じキャンバス座標が focalX/Y に来るようオフセット算出
-    const newTx = e.focalX - canvasX * newScale;
-    const newTy = e.focalY - canvasY * newScale;
-
     animScale.setValue(newScale);
-    animTx.setValue(newTx);
-    animTy.setValue(newTy);
+    animTx.setValue(e.focalX - canvasX * newScale);
+    animTy.setValue(e.focalY - canvasY * newScale);
   };
 
   const onPinchStateChange = (event: any) => {
     const e = event.nativeEvent;
     if (e.state === State.BEGAN) {
-      // ピンチ開始時の確定値を保存
       pinchBaseScale.current = baseScale.current;
       pinchBaseTx.current = baseTx.current;
       pinchBaseTy.current = baseTy.current;
     }
     if (e.state === State.END || e.state === State.CANCELLED) {
-      // 確定値を更新
       const newScale = Math.min(
         Math.max(pinchBaseScale.current * e.scale, SCALE_MIN),
         SCALE_MAX,
@@ -291,7 +268,6 @@ function ZoomableCanvas({
     }
   };
 
-  // ── パンハンドラー ──
   const onPanEvent = (event: any) => {
     const e = event.nativeEvent;
     animTx.setValue(panBaseTx.current + e.translationX);
@@ -309,18 +285,6 @@ function ZoomableCanvas({
       baseTy.current = panBaseTy.current + e.translationY;
     }
   };
-  const mainChildIds = new Set<number>();
-  const collectMainIds = (nodes: Node[]) => {
-    const map: Record<number, Node[]> = {};
-    for (const n of nodes) {
-      if (n.parentId != null) (map[n.parentId] ??= []).push(n);
-    }
-    for (const children of Object.values(map)) {
-      const sorted = children.slice().sort((a, b) => a.createdAt - b.createdAt);
-      if (sorted[0]) mainChildIds.add(sorted[0].id);
-    }
-  };
-  collectMainIds(nodes);
 
   return (
     <View style={{ flex: 1, overflow: "hidden" }}>
@@ -355,12 +319,8 @@ function ZoomableCanvas({
                   <ConnectorLine key={i} {...e} />
                 ))}
                 {allLayoutNodes.map((ln) => (
-                  <NodeCard
-                    key={ln.node.id}
-                    ln={ln}
-                    mainChildIds={mainChildIds}
-                  />
-                ))}
+                  <NodeCard key={ln.node.id} ln={ln} />
+                ))}{" "}
               </Animated.View>
             </Animated.View>
           </PinchGestureHandler>
@@ -423,7 +383,7 @@ export default function ThoughtViewScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#5C6BC0" />
+        <ActivityIndicator color="#a78bfa" />
       </View>
     );
   }
@@ -445,19 +405,43 @@ export default function ThoughtViewScreen() {
     );
   }
 
+  // ルートは1件のみ想定（本筋の起点）
+  const centerX = Math.max(NODE_W / 2 + PADDING, SCREEN.width / 2);
+  // rootNodesをcreatedAt順にソートして縦1本に並べる
+  const sortedRoots = rootNodes
+    .slice()
+    .sort((a, b) => a.createdAt - b.createdAt);
+
+  // 各rootNodeを縦に配置、子（分岐）は右展開
   let curY = PADDING;
-  const rootTrees: LayoutNode[] = [];
-  for (const rn of rootNodes) {
-    const sw = subtreeWidth(rn.id, childMap);
-    const centerX = Math.max(sw / 2 + PADDING, SCREEN.width / 2);
+  const allLayoutNodes: LayoutNode[] = [];
+  const allEdges: Edge[] = [];
+
+  for (let i = 0; i < sortedRoots.length; i++) {
+    const rn = sortedRoots[i];
     const tree = assignPositions(rn, centerX, curY, childMap);
-    rootTrees.push(tree);
-    const maxY = Math.max(...flattenTree(tree).map((ln) => ln.y + NODE_H));
-    curY = maxY + V_GAP * 2;
+    const treeNodes = flattenTree(tree);
+    const treeEdges = flattenEdges(tree);
+    allLayoutNodes.push(...treeNodes);
+    allEdges.push(...treeEdges);
+
+    // 本筋の縦線（次のrootNodeへ）
+    if (i < sortedRoots.length - 1) {
+      const nextY = curY + NODE_H + V_GAP;
+      allEdges.push({
+        px: centerX,
+        py: curY + NODE_H,
+        cx: centerX,
+        cy: nextY,
+      });
+      curY = nextY;
+    } else {
+      curY = curY + NODE_H + V_GAP;
+    }
   }
 
-  const allLayoutNodes = rootTrees.flatMap(flattenTree);
-  const allEdges = rootTrees.flatMap(flattenEdges);
+  const mainChildIds = new Set<number>(); // rootNodeはフラットなので本筋IDは不要
+
   const canvasW = Math.max(
     ...allLayoutNodes.map((ln) => ln.x + NODE_W / 2 + PADDING),
     SCREEN.width,
@@ -482,6 +466,7 @@ export default function ThoughtViewScreen() {
         canvasH={canvasH}
         allLayoutNodes={allLayoutNodes}
         allEdges={allEdges}
+        mainChildIds={mainChildIds}
       />
     </GestureHandlerRootView>
   );
