@@ -38,21 +38,41 @@ const SCREEN = Dimensions.get("window");
 const SCALE_MIN = 0.15;
 const SCALE_MAX = 6;
 
-// ── ツリーレイアウト計算 ────────────────────────────────────────
-
+// ── 型 ──────────────────────────────────────────────────────────
 type LayoutNode = { node: Node; x: number; y: number; children: LayoutNode[] };
 type Edge = { px: number; py: number; cx: number; cy: number };
 
-function subtreeWidth(
+// ── ツリーレイアウト計算 ────────────────────────────────────────
+
+function getMainChild(
+  nodeId: number,
+  childMap: Record<number, Node[]>,
+): Node | undefined {
+  return (childMap[nodeId] ?? [])
+    .slice()
+    .sort((a, b) => a.createdAt - b.createdAt)[0];
+}
+
+function getBranchChildren(
+  nodeId: number,
+  childMap: Record<number, Node[]>,
+): Node[] {
+  return (childMap[nodeId] ?? [])
+    .slice()
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .slice(1);
+}
+
+function branchSubtreeWidth(
   nodeId: number,
   childMap: Record<number, Node[]>,
 ): number {
-  const children = childMap[nodeId] ?? [];
-  if (children.length === 0) return NODE_W;
+  const branches = getBranchChildren(nodeId, childMap);
+  if (branches.length === 0) return NODE_W;
   return Math.max(
     NODE_W,
-    children.reduce(
-      (sum, c) => sum + subtreeWidth(c.id, childMap) + H_GAP,
+    branches.reduce(
+      (sum, c) => sum + branchSubtreeWidth(c.id, childMap) + H_GAP,
       -H_GAP,
     ),
   );
@@ -64,19 +84,23 @@ function assignPositions(
   topY: number,
   childMap: Record<number, Node[]>,
 ): LayoutNode {
-  const children = childMap[node.id] ?? [];
-  const totalW = children.reduce(
-    (sum, c) => sum + subtreeWidth(c.id, childMap) + H_GAP,
-    -H_GAP,
-  );
-  let curX = centerX - totalW / 2;
+  const children = (childMap[node.id] ?? [])
+    .slice()
+    .sort((a, b) => a.createdAt - b.createdAt);
+
+  const layoutChildren: LayoutNode[] = [];
   const childY = topY + NODE_H + V_GAP;
-  const layoutChildren = children.map((c) => {
-    const cw = subtreeWidth(c.id, childMap);
-    const cx2 = curX + cw / 2;
-    curX += cw + H_GAP;
-    return assignPositions(c, cx2, childY, childMap);
-  });
+
+  // 全子ノードを右側に横並び（分岐扱い）
+  if (children.length > 0) {
+    let curX = centerX + NODE_W / 2 + H_GAP * 2;
+    for (const c of children) {
+      const bw = branchSubtreeWidth(c.id, childMap);
+      layoutChildren.push(assignPositions(c, curX + bw / 2, childY, childMap));
+      curX += bw + H_GAP;
+    }
+  }
+
   return { node, x: centerX, y: topY, children: layoutChildren };
 }
 
@@ -91,13 +115,26 @@ function flattenEdges(root: LayoutNode): Edge[] {
   ]);
 }
 
+function buildMainChildIds(nodes: Node[]): Set<number> {
+  const map: Record<number, Node[]> = {};
+  for (const n of nodes) {
+    if (n.parentId != null) (map[n.parentId] ??= []).push(n);
+  }
+  const ids = new Set<number>();
+  for (const children of Object.values(map)) {
+    const sorted = children.slice().sort((a, b) => a.createdAt - b.createdAt);
+    if (sorted[0]) ids.add(sorted[0].id);
+  }
+  return ids;
+}
+
 // ── 折れ線コネクター ────────────────────────────────────────────
 
 function ConnectorLine({ px, py, cx, cy }: Edge) {
   const midY = (py + cy) / 2;
   const left = Math.min(px, cx);
   const lineW = Math.abs(px - cx);
-  const COLOR = "#C5CAE9";
+  const COLOR = "rgba(167,139,250,0.4)";
   const T = 1.5;
   return (
     <>
@@ -141,7 +178,8 @@ function ConnectorLine({ px, py, cx, cy }: Edge) {
 
 function NodeCard({ ln }: { ln: LayoutNode }) {
   const { node, x, y } = ln;
-  const isRoot = node.parentId == null;
+  const isRoot = node.parentId == null; // rootNode = 本筋
+
   return (
     <View
       style={[
@@ -168,7 +206,6 @@ function NodeCard({ ln }: { ln: LayoutNode }) {
     </View>
   );
 }
-
 // ── ZoomableCanvas ──────────────────────────────────────────────
 
 function ZoomableCanvas({
@@ -176,67 +213,49 @@ function ZoomableCanvas({
   canvasH,
   allLayoutNodes,
   allEdges,
+  mainChildIds,
 }: {
   canvasW: number;
   canvasH: number;
   allLayoutNodes: LayoutNode[];
   allEdges: Edge[];
+  mainChildIds: Set<number>;
 }) {
-  // 確定値（ジェスチャー終了後に保存）
   const baseScale = useRef(1);
   const baseTx = useRef(0);
   const baseTy = useRef(0);
-
-  // Animated.Value（描画用）
   const animScale = useRef(new Animated.Value(1)).current;
   const animTx = useRef(new Animated.Value(0)).current;
   const animTy = useRef(new Animated.Value(0)).current;
-
-  // ピンチ開始時の確定値スナップショット
   const pinchBaseScale = useRef(1);
   const pinchBaseTx = useRef(0);
   const pinchBaseTy = useRef(0);
-
-  // パン開始時のスナップショット
   const panBaseTx = useRef(0);
   const panBaseTy = useRef(0);
-
   const pinchRef = useRef(null);
   const panRef = useRef(null);
 
-  // ── ピンチハンドラー ──
   const onPinchEvent = (event: any) => {
     const e = event.nativeEvent;
-    // e.scale    : 開始時からの累積スケール倍率
-    // e.focalX/Y : 指の中点（スクリーン座標）
     const newScale = Math.min(
       Math.max(pinchBaseScale.current * e.scale, SCALE_MIN),
       SCALE_MAX,
     );
-
-    // focalX/Y のスクリーン座標がキャンバス上のどこか（ピンチ開始時の変換で）
     const canvasX = (e.focalX - pinchBaseTx.current) / pinchBaseScale.current;
     const canvasY = (e.focalY - pinchBaseTy.current) / pinchBaseScale.current;
-
-    // 新スケールで同じキャンバス座標が focalX/Y に来るようオフセット算出
-    const newTx = e.focalX - canvasX * newScale;
-    const newTy = e.focalY - canvasY * newScale;
-
     animScale.setValue(newScale);
-    animTx.setValue(newTx);
-    animTy.setValue(newTy);
+    animTx.setValue(e.focalX - canvasX * newScale);
+    animTy.setValue(e.focalY - canvasY * newScale);
   };
 
   const onPinchStateChange = (event: any) => {
     const e = event.nativeEvent;
     if (e.state === State.BEGAN) {
-      // ピンチ開始時の確定値を保存
       pinchBaseScale.current = baseScale.current;
       pinchBaseTx.current = baseTx.current;
       pinchBaseTy.current = baseTy.current;
     }
     if (e.state === State.END || e.state === State.CANCELLED) {
-      // 確定値を更新
       const newScale = Math.min(
         Math.max(pinchBaseScale.current * e.scale, SCALE_MIN),
         SCALE_MAX,
@@ -249,7 +268,6 @@ function ZoomableCanvas({
     }
   };
 
-  // ── パンハンドラー ──
   const onPanEvent = (event: any) => {
     const e = event.nativeEvent;
     animTx.setValue(panBaseTx.current + e.translationX);
@@ -302,7 +320,7 @@ function ZoomableCanvas({
                 ))}
                 {allLayoutNodes.map((ln) => (
                   <NodeCard key={ln.node.id} ln={ln} />
-                ))}
+                ))}{" "}
               </Animated.View>
             </Animated.View>
           </PinchGestureHandler>
@@ -365,7 +383,7 @@ export default function ThoughtViewScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#5C6BC0" />
+        <ActivityIndicator color="#a78bfa" />
       </View>
     );
   }
@@ -387,19 +405,43 @@ export default function ThoughtViewScreen() {
     );
   }
 
+  // ルートは1件のみ想定（本筋の起点）
+  const centerX = Math.max(NODE_W / 2 + PADDING, SCREEN.width / 2);
+  // rootNodesをcreatedAt順にソートして縦1本に並べる
+  const sortedRoots = rootNodes
+    .slice()
+    .sort((a, b) => a.createdAt - b.createdAt);
+
+  // 各rootNodeを縦に配置、子（分岐）は右展開
   let curY = PADDING;
-  const rootTrees: LayoutNode[] = [];
-  for (const rn of rootNodes) {
-    const sw = subtreeWidth(rn.id, childMap);
-    const centerX = Math.max(sw / 2 + PADDING, SCREEN.width / 2);
+  const allLayoutNodes: LayoutNode[] = [];
+  const allEdges: Edge[] = [];
+
+  for (let i = 0; i < sortedRoots.length; i++) {
+    const rn = sortedRoots[i];
     const tree = assignPositions(rn, centerX, curY, childMap);
-    rootTrees.push(tree);
-    const maxY = Math.max(...flattenTree(tree).map((ln) => ln.y + NODE_H));
-    curY = maxY + V_GAP * 2;
+    const treeNodes = flattenTree(tree);
+    const treeEdges = flattenEdges(tree);
+    allLayoutNodes.push(...treeNodes);
+    allEdges.push(...treeEdges);
+
+    // 本筋の縦線（次のrootNodeへ）
+    if (i < sortedRoots.length - 1) {
+      const nextY = curY + NODE_H + V_GAP;
+      allEdges.push({
+        px: centerX,
+        py: curY + NODE_H,
+        cx: centerX,
+        cy: nextY,
+      });
+      curY = nextY;
+    } else {
+      curY = curY + NODE_H + V_GAP;
+    }
   }
 
-  const allLayoutNodes = rootTrees.flatMap(flattenTree);
-  const allEdges = rootTrees.flatMap(flattenEdges);
+  const mainChildIds = new Set<number>(); // rootNodeはフラットなので本筋IDは不要
+
   const canvasW = Math.max(
     ...allLayoutNodes.map((ln) => ln.x + NODE_W / 2 + PADDING),
     SCREEN.width,
@@ -424,6 +466,7 @@ export default function ThoughtViewScreen() {
         canvasH={canvasH}
         allLayoutNodes={allLayoutNodes}
         allEdges={allEdges}
+        mainChildIds={mainChildIds}
       />
     </GestureHandlerRootView>
   );
@@ -432,39 +475,48 @@ export default function ThoughtViewScreen() {
 // ── スタイル ────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f0f0f8" },
-  headerLayer: { zIndex: 10, elevation: 10, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: "#080c18" },
+  headerLayer: { zIndex: 10, elevation: 10, backgroundColor: "#0d1225" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  emptyText: { color: "#9E9E9E", fontSize: 14 },
+  emptyText: { color: "#64748b", fontSize: 14 },
   metaCard: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "rgba(167,139,250,0.2)",
   },
-  metaTitle: { fontSize: 17, fontWeight: "700", color: "#212121" },
-  metaDate: { fontSize: 12, color: "#9E9E9E", marginTop: 4 },
+  metaTitle: { fontSize: 17, fontWeight: "700", color: "#e2e8f0" },
+  metaDate: { fontSize: 12, color: "#64748b", marginTop: 4 },
   hint: {
     alignItems: "center",
     paddingVertical: 4,
-    backgroundColor: "#EDE7F6",
+    backgroundColor: "rgba(167,139,250,0.08)",
   },
-  hintText: { fontSize: 11, color: "#7986CB" },
+  hintText: { fontSize: 11, color: "#a78bfa" },
 });
 
 const card = StyleSheet.create({
   box: {
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.07)",
     borderRadius: 10,
     padding: 8,
-    elevation: 3,
     borderWidth: 1,
-    borderColor: "#E8EAF6",
+    borderColor: "rgba(167,139,250,0.2)",
     justifyContent: "space-between",
   },
-  rootBox: { backgroundColor: "#5C6BC0", borderColor: "#3949AB" },
-  text: { fontSize: 12, color: "#212121", lineHeight: 16 },
+  mainBox: {
+    backgroundColor: "rgba(167,139,250,0.15)",
+    borderColor: "rgba(167,139,250,0.5)",
+  },
+  rootBox: {
+    backgroundColor: "rgba(167,139,250,0.35)",
+    borderColor: "#a78bfa",
+    borderWidth: 2,
+  },
+  text: { fontSize: 12, color: "#e2e8f0", lineHeight: 16 },
+  mainText: { color: "#fff" },
   rootText: { color: "#fff", fontWeight: "600" },
-  time: { fontSize: 10, color: "#9E9E9E", alignSelf: "flex-end" },
-  rootTime: { color: "#C5CAE9" },
+  time: { fontSize: 10, color: "#64748b", alignSelf: "flex-end" },
+  mainTime: { color: "#c4b5fd" },
+  rootTime: { color: "#c4b5fd" },
 });

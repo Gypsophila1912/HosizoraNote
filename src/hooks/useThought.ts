@@ -38,11 +38,13 @@ export const useThought = () => {
   }, [currentThoughtId, title, setCurrentThoughtId]);
 
   /** ルートレベルへのメッセージ送信（HomeScreen用） */
+  // useThought.ts
+
   const sendMessage = useCallback(
     async (text: string, parentId?: number) => {
       if (!text.trim()) return;
       const thoughtId = await ensureThought();
-      await addNode(thoughtId, text, parentId);
+      await addNode(thoughtId, text, parentId ?? undefined);
       const updated = await getNodesByThoughtId(thoughtId);
       setNodes(updated);
     },

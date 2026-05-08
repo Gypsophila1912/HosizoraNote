@@ -161,6 +161,7 @@ export default function ThoughtSelectScreen() {
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [markedDates, setMarkedDates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(true);
 
   // タブに戻るたびにマーク日付を再取得
   useFocusEffect(
@@ -231,11 +232,28 @@ export default function ThoughtSelectScreen() {
 
       {/* 下半分：カレンダー */}
       <View style={styles.calendarArea}>
-        <MiniCalendar
-          selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
-          markedDates={markedDates}
-        />
+        {/* トグルボタン */}
+        <TouchableOpacity
+          style={styles.calendarToggle}
+          onPress={() => setCalendarOpen((v) => !v)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.calendarToggleBar} />
+          <Text style={styles.calendarToggleText}>
+            {calendarOpen ? "カレンダーを閉じる ▾" : "カレンダーを開く ▴"}
+          </Text>
+        </TouchableOpacity>
+
+        {/* 高さ固定のラッパー */}
+        {calendarOpen && (
+          <View style={styles.calendarFixed}>
+            <MiniCalendar
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+              markedDates={markedDates}
+            />
+          </View>
+        )}
       </View>
     </View>
   );
@@ -244,19 +262,14 @@ export default function ThoughtSelectScreen() {
 // ── スタイル ────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
-
-  // 上半分
-  listArea: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
+  container: { flex: 1, backgroundColor: "#080c18" },
+  listArea: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
   dateLabel: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#5C6BC0",
+    color: "#a78bfa",
     marginBottom: 10,
+    letterSpacing: 0.5,
   },
   emptyContainer: {
     flex: 1,
@@ -264,30 +277,48 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingBottom: 32,
   },
-  emptyText: { color: "#9E9E9E", fontSize: 14 },
+  emptyText: { color: "#64748b", fontSize: 14 },
   listContent: { paddingBottom: 8 },
   thoughtItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.07)",
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: "rgba(167,139,250,0.2)",
   },
   thoughtItemContent: { flex: 1 },
-  thoughtTitle: { fontSize: 15, fontWeight: "600", color: "#212121" },
-  thoughtTime: { fontSize: 12, color: "#9E9E9E", marginTop: 2 },
-  chevron: { fontSize: 22, color: "#C5CAE9", marginLeft: 8 },
+  thoughtTitle: { fontSize: 15, fontWeight: "600", color: "#e2e8f0" },
+  thoughtTime: { fontSize: 12, color: "#64748b", marginTop: 2 },
+  chevron: { fontSize: 22, color: "#a78bfa", marginLeft: 8 },
   separator: { height: 8 },
-
-  // 下半分
   calendarArea: {
-    backgroundColor: "#fff",
+    backgroundColor: "#0d1225",
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
+    borderTopColor: "rgba(167,139,250,0.2)",
     elevation: 4,
   },
+  calendarToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    gap: 6,
+  },
+  calendarToggleBar: {
+    width: 32,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: "rgba(167,139,250,0.3)",
+  },
+  calendarToggleText: {
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: "600",
+  },
+  calendarFixed: { height: 280 },
 });
 
 const cal = StyleSheet.create({
@@ -299,19 +330,19 @@ const cal = StyleSheet.create({
     marginBottom: 6,
   },
   navBtn: { padding: 8 },
-  navText: { fontSize: 16, color: "#5C6BC0", fontWeight: "700" },
-  monthLabel: { fontSize: 15, fontWeight: "700", color: "#212121" },
+  navText: { fontSize: 16, color: "#a78bfa", fontWeight: "700" },
+  monthLabel: { fontSize: 15, fontWeight: "700", color: "#e2e8f0" },
   weekRow: { flexDirection: "row", marginBottom: 2 },
   weekLabel: {
     flex: 1,
     textAlign: "center",
     fontSize: 11,
     fontWeight: "600",
-    color: "#757575",
+    color: "#64748b",
     paddingVertical: 2,
   },
-  sunday: { color: "#E57373" },
-  saturday: { color: "#5C6BC0" },
+  sunday: { color: "#f87171" },
+  saturday: { color: "#a78bfa" },
   grid: { flexDirection: "row", flexWrap: "wrap" },
   cell: {
     width: `${100 / 7}%`,
@@ -319,18 +350,15 @@ const cal = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  selectedCell: {
-    backgroundColor: "#5C6BC0",
-    borderRadius: 999,
-  },
-  dayText: { fontSize: 13, color: "#212121" },
+  selectedCell: { backgroundColor: "#a78bfa", borderRadius: 999 },
+  dayText: { fontSize: 13, color: "#e2e8f0" },
   selectedDayText: { color: "#fff", fontWeight: "700" },
-  todayText: { color: "#5C6BC0", fontWeight: "700" },
+  todayText: { color: "#fbbf24", fontWeight: "700" },
   dot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#5C6BC0",
+    backgroundColor: "#fbbf24",
     marginTop: 1,
   },
   dotSelected: { backgroundColor: "#fff" },

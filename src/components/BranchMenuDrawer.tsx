@@ -120,22 +120,24 @@ export default function BranchMenuDrawer({
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    flexDirection: "row", // 左: ドロワー, 右: バックドロップ
+    flexDirection: "row",
     backgroundColor: "transparent",
   },
   drawer: {
     width: "72%",
     maxWidth: 300,
-    backgroundColor: "#fff",
-    shadowColor: "#000",
+    backgroundColor: "#0d1225",
+    borderRightWidth: 1,
+    borderRightColor: "rgba(167,139,250,0.2)",
+    shadowColor: "#a78bfa",
     shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
     elevation: 16,
   },
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.38)",
+    backgroundColor: "rgba(0,0,0,0.6)",
   },
   drawerHeader: {
     flexDirection: "row",
@@ -143,16 +145,19 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: "#5C6BC0",
+    backgroundColor: "rgba(167,139,250,0.15)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(167,139,250,0.2)",
   },
   drawerTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#fff",
+    color: "#e2e8f0",
+    letterSpacing: 1,
   },
   closeIcon: {
     fontSize: 16,
-    color: "#fff",
+    color: "#a78bfa",
     fontWeight: "600",
   },
   emptyContainer: {
@@ -163,16 +168,14 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 13,
-    color: "#9E9E9E",
+    color: "#64748b",
     textAlign: "center",
     lineHeight: 20,
   },
-  listContent: {
-    paddingVertical: 8,
-  },
+  listContent: { paddingVertical: 8 },
   separator: {
     height: 1,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "rgba(255,255,255,0.05)",
     marginHorizontal: 16,
   },
   branchItem: {
@@ -186,32 +189,22 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#EDE7F6",
+    backgroundColor: "rgba(167,139,250,0.15)",
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
   branchIconText: {
     fontSize: 14,
-    color: "#5C6BC0",
+    color: "#a78bfa",
     fontWeight: "700",
   },
-  branchTextWrap: {
-    flex: 1,
-    gap: 3,
-  },
+  branchTextWrap: { flex: 1, gap: 3 },
   branchNodeText: {
     fontSize: 14,
-    color: "#212121",
+    color: "#e2e8f0",
     lineHeight: 20,
   },
-  branchNodeTime: {
-    fontSize: 11,
-    color: "#9E9E9E",
-  },
-  chevron: {
-    fontSize: 20,
-    color: "#BDBDBD",
-    flexShrink: 0,
-  },
+  branchNodeTime: { fontSize: 11, color: "#64748b" },
+  chevron: { fontSize: 20, color: "#a78bfa", flexShrink: 0 },
 });
