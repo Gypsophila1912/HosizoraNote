@@ -5,7 +5,11 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
+  Animated,
+  Dimensions,
 } from "react-native";
+import { useEffect, useRef } from "react";
+import * as NavigationBar from "expo-navigation-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Node } from "@/db/repositories/nodeRepository";
 
@@ -16,6 +20,8 @@ type Props = {
   onSelectBranch: (nodeId: number) => void;
 };
 
+const DRAWER_WIDTH = Math.min(Dimensions.get("window").width * 0.72, 300);
+
 export default function BranchMenuDrawer({
   visible,
   onClose,
@@ -23,6 +29,48 @@ export default function BranchMenuDrawer({
   onSelectBranch,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      NavigationBar.setBackgroundColorAsync("#0d1225");
+      NavigationBar.setButtonStyleAsync("light");
+    } else {
+      NavigationBar.setBackgroundColorAsync("#080c18");
+      NavigationBar.setButtonStyleAsync("light");
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(translateX, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(translateX, {
+          toValue: -DRAWER_WIDTH,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible]);
 
   const parentIdSet = new Set(
     allNodes.map((n) => n.parentId).filter((id): id is number => id !== null),
@@ -33,17 +81,20 @@ export default function BranchMenuDrawer({
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="none"
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      {/* 全画面を横並びで: [ドロワー本体] [バックドロップ] */}
       <View style={styles.wrapper}>
-        {/* ── ドロワー本体（左側） ── */}
-        <View
+        {/* ── ドロワー本体（左からスライド） ── */}
+        <Animated.View
           style={[
             styles.drawer,
-            { paddingTop: insets.top, paddingBottom: insets.bottom },
+            {
+              paddingTop: insets.top,
+              paddingBottom: insets.bottom,
+              transform: [{ translateX }],
+            },
           ]}
         >
           {/* ドロワーヘッダー */}
@@ -104,14 +155,19 @@ export default function BranchMenuDrawer({
               )}
             />
           )}
-        </View>
+        </Animated.View>
 
-        {/* ── バックドロップ（右側・タップで閉じる） ── */}
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={onClose}
-        />
+        {/* ── バックドロップ（タップで閉じる） ── */}
+        <Animated.View
+          style={[styles.backdrop, { opacity: backdropOpacity }]}
+          pointerEvents={visible ? "auto" : "none"}
+        >
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={onClose}
+          />
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -121,11 +177,9 @@ const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
     flexDirection: "row",
-    backgroundColor: "transparent",
   },
   drawer: {
-    width: "72%",
-    maxWidth: 300,
+    width: DRAWER_WIDTH,
     backgroundColor: "#0d1225",
     borderRightWidth: 1,
     borderRightColor: "rgba(167,139,250,0.2)",
@@ -134,10 +188,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 16,
+    zIndex: 10,
   },
   backdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.6)",
+    zIndex: 5,
   },
   drawerHeader: {
     flexDirection: "row",

@@ -6,20 +6,22 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Animated,
   PanResponder,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useState, useRef, useCallback } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { HomeStackParamList } from "@/navigation/types";
+import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import { HomeStackParamList, TabParamList } from "@/navigation/types";
 import { useThought } from "@/hooks/useThought";
 import { Node } from "@/db/repositories/nodeRepository";
 import BranchMenuDrawer from "@/components/BranchMenuDrawer";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-type Nav = NativeStackNavigationProp<HomeStackParamList, "Home">;
+type Nav = NativeStackNavigationProp<HomeStackParamList, "Home"> &
+  BottomTabNavigationProp<TabParamList>;
 
 function SwipeableMessage({
   item,
@@ -98,6 +100,7 @@ function SwipeableMessage({
 
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const {
     title,
     nodes,
@@ -115,11 +118,8 @@ export default function HomeScreen() {
     return acc;
   }, {});
 
-  // HomeScreen.tsx の childCountMap の下あたりに追加
-
-  /** ルートから末端まで「本筋」ノードをたどる */
-
   const rootNodes = nodes.filter((n) => n.parentId == null);
+
   const handleSend = async () => {
     if (!inputText.trim()) return;
     await sendMessage(inputText);
@@ -128,6 +128,8 @@ export default function HomeScreen() {
 
   const handleComplete = async () => {
     await complete();
+    // 完了後にきろくタブへ遷移
+    navigation.navigate("ThoughtSelect");
   };
 
   const handleReset = () => {
@@ -175,12 +177,10 @@ export default function HomeScreen() {
     <>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 85}
+        behavior="padding"
+        keyboardVerticalOffset={insets.bottom}
       >
-        {/* ───── 独自ヘッダー ───── */}
         <View style={styles.header}>
-          {/* ハンバーガー（タイトル入力欄の左） */}
           <TouchableOpacity
             onPress={() => setMenuVisible(true)}
             style={styles.hamburgerButton}
@@ -301,7 +301,8 @@ const styles = StyleSheet.create({
   messageBubble: {
     backgroundColor: "rgba(255,255,255,0.07)",
     borderRadius: 16,
-    padding: 12,
+    paddingTop: 12,
+    paddingHorizontal: 12,
     maxWidth: "80%",
     alignSelf: "stretch",
     borderWidth: 1,

@@ -7,7 +7,7 @@ const Stack = createNativeStackNavigator<ThoughtSelectStackParamList>();
 
 export default function ThoughtSelectStackNavigator() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen
         name="ThoughtSelect"
         component={ThoughtSelectScreen}

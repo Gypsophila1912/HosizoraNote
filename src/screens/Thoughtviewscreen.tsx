@@ -6,6 +6,9 @@ import {
   ActivityIndicator,
   Dimensions,
   Animated,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
 } from "react-native";
 import {
   GestureHandlerRootView,
@@ -21,6 +24,8 @@ import { Thought } from "@/db/repositories/thoughtRepository";
 import { db } from "@/db/index";
 import { thoughtsTable } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { formatNodesToText } from "@/utils/nodeTreeFormatter";
+import { summarizeNodes } from "@/utils/gemini";
 
 type Route = RouteProp<ThoughtSelectStackParamList, "ThoughtView">;
 type Nav = NativeStackNavigationProp<
@@ -91,7 +96,6 @@ function assignPositions(
   const layoutChildren: LayoutNode[] = [];
   const childY = topY + NODE_H + V_GAP;
 
-  // 全子ノードを右側に横並び（分岐扱い）
   if (children.length > 0) {
     let curX = centerX + NODE_W / 2 + H_GAP * 2;
     for (const c of children) {
@@ -178,7 +182,7 @@ function ConnectorLine({ px, py, cx, cy }: Edge) {
 
 function NodeCard({ ln }: { ln: LayoutNode }) {
   const { node, x, y } = ln;
-  const isRoot = node.parentId == null; // rootNode = 本筋
+  const isRoot = node.parentId == null;
 
   return (
     <View
@@ -206,6 +210,7 @@ function NodeCard({ ln }: { ln: LayoutNode }) {
     </View>
   );
 }
+
 // ── ZoomableCanvas ──────────────────────────────────────────────
 
 function ZoomableCanvas({
@@ -320,7 +325,7 @@ function ZoomableCanvas({
                 ))}
                 {allLayoutNodes.map((ln) => (
                   <NodeCard key={ln.node.id} ln={ln} />
-                ))}{" "}
+                ))}
               </Animated.View>
             </Animated.View>
           </PinchGestureHandler>
@@ -332,7 +337,13 @@ function ZoomableCanvas({
 
 // ── MetaHeader ──────────────────────────────────────────────────
 
-function MetaHeader({ thought }: { thought: Thought | null }) {
+function MetaHeader({
+  thought,
+  onSummarize,
+}: {
+  thought: Thought | null;
+  onSummarize: () => void;
+}) {
   const fmt = (ms: number) =>
     new Date(ms).toLocaleString("ja-JP", {
       year: "numeric",
@@ -343,11 +354,58 @@ function MetaHeader({ thought }: { thought: Thought | null }) {
     });
   return (
     <View style={styles.metaCard}>
-      <Text style={styles.metaTitle}>
-        {thought?.title?.trim() ? thought.title : "（タイトルなし）"}
-      </Text>
-      {thought && <Text style={styles.metaDate}>{fmt(thought.createdAt)}</Text>}
+      <View style={styles.metaRow}>
+        <View style={styles.metaTextArea}>
+          <Text style={styles.metaTitle}>
+            {thought?.title?.trim() ? thought.title : "（タイトルなし）"}
+          </Text>
+          {thought && (
+            <Text style={styles.metaDate}>{fmt(thought.createdAt)}</Text>
+          )}
+        </View>
+        {/* 要約ボタン */}
+        <TouchableOpacity style={styles.summarizeButton} onPress={onSummarize}>
+          <Text style={styles.summarizeButtonText}>✦ 要約</Text>
+        </TouchableOpacity>
+      </View>
     </View>
+  );
+}
+
+// ── 要約モーダル ────────────────────────────────────────────────
+
+function SummarizeModal({
+  visible,
+  loading,
+  summary,
+  onClose,
+}: {
+  visible: boolean;
+  loading: boolean;
+  summary: string;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={modal.overlay}>
+        <View style={modal.card}>
+          <Text style={modal.title}>✦ AIによる要約</Text>
+          {loading ? (
+            <View style={modal.loadingArea}>
+              <ActivityIndicator color="#a78bfa" />
+              <Text style={modal.loadingText}>要約中...</Text>
+            </View>
+          ) : (
+            <ScrollView style={modal.scrollArea}>
+              <Text style={modal.summaryText}>{summary}</Text>
+            </ScrollView>
+          )}
+          <TouchableOpacity style={modal.closeButton} onPress={onClose}>
+            <Text style={modal.closeButtonText}>閉じる</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -361,6 +419,11 @@ export default function ThoughtViewScreen() {
   const [thought, setThought] = useState<Thought | null>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 要約モーダル用
+  const [modalVisible, setModalVisible] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
+  const [summary, setSummary] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -380,6 +443,21 @@ export default function ThoughtViewScreen() {
     })();
   }, [thoughtId]);
 
+  const handleSummarize = async () => {
+    setModalVisible(true);
+    setSummarizing(true);
+    setSummary("");
+    try {
+      const treeText = formatNodesToText(nodes);
+      const result = await summarizeNodes(treeText);
+      setSummary(result);
+    } catch (e) {
+      setSummary("要約に失敗しました。通信環境を確認してください。");
+    } finally {
+      setSummarizing(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -397,7 +475,7 @@ export default function ThoughtViewScreen() {
   if (rootNodes.length === 0) {
     return (
       <View style={styles.container}>
-        <MetaHeader thought={thought} />
+        <MetaHeader thought={thought} onSummarize={handleSummarize} />
         <View style={styles.center}>
           <Text style={styles.emptyText}>ノードがありません</Text>
         </View>
@@ -405,14 +483,11 @@ export default function ThoughtViewScreen() {
     );
   }
 
-  // ルートは1件のみ想定（本筋の起点）
   const centerX = Math.max(NODE_W / 2 + PADDING, SCREEN.width / 2);
-  // rootNodesをcreatedAt順にソートして縦1本に並べる
   const sortedRoots = rootNodes
     .slice()
     .sort((a, b) => a.createdAt - b.createdAt);
 
-  // 各rootNodeを縦に配置、子（分岐）は右展開
   let curY = PADDING;
   const allLayoutNodes: LayoutNode[] = [];
   const allEdges: Edge[] = [];
@@ -425,7 +500,6 @@ export default function ThoughtViewScreen() {
     allLayoutNodes.push(...treeNodes);
     allEdges.push(...treeEdges);
 
-    // 本筋の縦線（次のrootNodeへ）
     if (i < sortedRoots.length - 1) {
       const nextY = curY + NODE_H + V_GAP;
       allEdges.push({
@@ -440,7 +514,7 @@ export default function ThoughtViewScreen() {
     }
   }
 
-  const mainChildIds = new Set<number>(); // rootNodeはフラットなので本筋IDは不要
+  const mainChildIds = new Set<number>();
 
   const canvasW = Math.max(
     ...allLayoutNodes.map((ln) => ln.x + NODE_W / 2 + PADDING),
@@ -454,7 +528,7 @@ export default function ThoughtViewScreen() {
   return (
     <GestureHandlerRootView style={styles.container}>
       <View style={styles.headerLayer}>
-        <MetaHeader thought={thought} />
+        <MetaHeader thought={thought} onSummarize={handleSummarize} />
         <View style={styles.hint}>
           <Text style={styles.hintText}>
             ピンチでズーム・1本指でドラッグ移動
@@ -467,6 +541,12 @@ export default function ThoughtViewScreen() {
         allLayoutNodes={allLayoutNodes}
         allEdges={allEdges}
         mainChildIds={mainChildIds}
+      />
+      <SummarizeModal
+        visible={modalVisible}
+        loading={summarizing}
+        summary={summary}
+        onClose={() => setModalVisible(false)}
       />
     </GestureHandlerRootView>
   );
@@ -485,8 +565,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "rgba(167,139,250,0.2)",
   },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  metaTextArea: { flex: 1, marginRight: 12 },
   metaTitle: { fontSize: 17, fontWeight: "700", color: "#e2e8f0" },
   metaDate: { fontSize: 12, color: "#64748b", marginTop: 4 },
+  summarizeButton: {
+    backgroundColor: "rgba(167,139,250,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(167,139,250,0.4)",
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  summarizeButtonText: {
+    color: "#a78bfa",
+    fontSize: 13,
+    fontWeight: "600",
+  },
   hint: {
     alignItems: "center",
     paddingVertical: 4,
@@ -519,4 +618,60 @@ const card = StyleSheet.create({
   time: { fontSize: 10, color: "#64748b", alignSelf: "flex-end" },
   mainTime: { color: "#c4b5fd" },
   rootTime: { color: "#c4b5fd" },
+});
+
+const modal = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  card: {
+    width: "100%",
+    backgroundColor: "#0d1225",
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: "rgba(167,139,250,0.3)",
+    maxHeight: "70%",
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#a78bfa",
+    marginBottom: 16,
+  },
+  loadingArea: {
+    alignItems: "center",
+    paddingVertical: 32,
+    gap: 12,
+  },
+  loadingText: {
+    color: "#64748b",
+    fontSize: 13,
+  },
+  scrollArea: {
+    maxHeight: 300,
+  },
+  summaryText: {
+    color: "#e2e8f0",
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  closeButton: {
+    marginTop: 20,
+    backgroundColor: "rgba(167,139,250,0.15)",
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(167,139,250,0.3)",
+  },
+  closeButtonText: {
+    color: "#a78bfa",
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });
