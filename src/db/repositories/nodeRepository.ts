@@ -53,3 +53,27 @@ export const deleteNodesByThoughtId = async (
 ): Promise<void> => {
   await db.delete(nodesTable).where(eq(nodesTable.thoughtId, thoughtId));
 };
+
+/** ノードのテキストを更新 */
+export const updateNodeText = async (
+  id: number,
+  text: string,
+): Promise<void> => {
+  await db.update(nodesTable).set({ text }).where(eq(nodesTable.id, id));
+};
+
+/** ノードを削除 */
+export const deleteNode = async (id: number): Promise<void> => {
+  await db.delete(nodesTable).where(eq(nodesTable.id, id));
+};
+
+/** 並び替え後のノードリストに対し、createdAt を連番に更新して並び順を永続化する */
+export const updateNodeOrders = async (
+  nodes: { id: number; createdAt: number }[],
+): Promise<void> => {
+  await Promise.all(
+    nodes.map(({ id, createdAt }) =>
+      db.update(nodesTable).set({ createdAt }).where(eq(nodesTable.id, id)),
+    ),
+  );
+};

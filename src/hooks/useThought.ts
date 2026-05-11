@@ -11,6 +11,9 @@ import {
   getChildNodes,
   getNodeById,
   deleteNodesByThoughtId,
+  updateNodeText,
+  deleteNode,
+  updateNodeOrders,
   Node,
 } from "@/db/repositories/nodeRepository";
 
@@ -107,6 +110,54 @@ export const useThought = () => {
     reset();
   }, [currentThoughtId, reset]);
 
+  /** HomeScreen用: ルートノードのテキスト編集 */
+  const editNode = useCallback(
+    async (nodeId: number, newText: string) => {
+      await updateNodeText(nodeId, newText);
+      if (!currentThoughtId) return;
+      const updated = await getNodesByThoughtId(currentThoughtId);
+      setNodes(updated);
+    },
+    [currentThoughtId, setNodes],
+  );
+
+  /** HomeScreen用: ルートノード削除 */
+  const removeNode = useCallback(
+    async (nodeId: number) => {
+      await deleteNode(nodeId);
+      if (!currentThoughtId) return;
+      const updated = await getNodesByThoughtId(currentThoughtId);
+      setNodes(updated);
+    },
+    [currentThoughtId, setNodes],
+  );
+
+  /**
+   * 同一スコープのノードリスト内で index を上下に移動する汎用ヘルパー。
+   * createdAt の値を入れ替えることで並び順を永続化する。
+   * 更新後のリストを返す。
+   */
+  const reorderNodes = useCallback(
+    async (sortedNodes: Node[], fromIndex: number, toIndex: number): Promise<Node[]> => {
+      if (fromIndex === toIndex) return sortedNodes;
+      const arr = [...sortedNodes];
+      const [moved] = arr.splice(fromIndex, 1);
+      arr.splice(toIndex, 0, moved);
+
+      // createdAt を連番で振り直して順序を確定する
+      const base = Math.min(...arr.map((n) => n.createdAt));
+      const withCreatedAt = arr.map((n, i) => ({
+        id: n.id,
+        createdAt: base + i,
+      }));
+      await updateNodeOrders(withCreatedAt);
+
+      const reordered = arr.map((n, i) => ({ ...n, createdAt: base + i }));
+      return reordered;
+    },
+    [],
+  );
+
   return {
     title,
     nodes,
@@ -120,5 +171,8 @@ export const useThought = () => {
     complete,
     resetThought,
     currentThoughtId,
+    editNode,
+    removeNode,
+    reorderNodes,
   };
 };

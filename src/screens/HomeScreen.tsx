@@ -6,11 +6,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  Animated,
-  PanResponder,
   KeyboardAvoidingView,
 } from "react-native";
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -18,85 +16,11 @@ import { HomeStackParamList, TabParamList } from "@/navigation/types";
 import { useThought } from "@/hooks/useThought";
 import { Node } from "@/db/repositories/nodeRepository";
 import BranchMenuDrawer from "@/components/BranchMenuDrawer";
+import SwipeableMessage from "@/components/SwipeableMessage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, "Home"> &
   BottomTabNavigationProp<TabParamList>;
-
-function SwipeableMessage({
-  item,
-  childCount,
-  onSwipeLeft,
-}: {
-  item: Node;
-  childCount: number;
-  onSwipeLeft: (node: Node) => void;
-}) {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const triggered = useRef(false);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gs) =>
-        Math.abs(gs.dx) > 8 && Math.abs(gs.dx) > Math.abs(gs.dy) * 1.5,
-      onPanResponderMove: (_, gs) => {
-        if (gs.dx < 0) translateX.setValue(Math.max(gs.dx, -80));
-      },
-      onPanResponderRelease: (_, gs) => {
-        if (gs.dx < -50 && !triggered.current) {
-          triggered.current = true;
-          Animated.timing(translateX, {
-            toValue: -80,
-            duration: 100,
-            useNativeDriver: true,
-          }).start(() => {
-            Animated.spring(translateX, {
-              toValue: 0,
-              useNativeDriver: true,
-            }).start(() => {
-              triggered.current = false;
-            });
-            onSwipeLeft(item);
-          });
-        } else {
-          Animated.spring(translateX, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
-        }
-      },
-    }),
-  ).current;
-
-  return (
-    <View style={styles.swipeRow}>
-      <View style={styles.swipeHint}>
-        <Text style={styles.swipeHintText}>分岐</Text>
-      </View>
-      <Animated.View
-        style={{ transform: [{ translateX }], alignSelf: "stretch" }}
-        {...panResponder.panHandlers}
-      >
-        <View style={styles.messageBubble}>
-          <Text style={styles.messageText}>{item.text}</Text>
-          <View style={styles.messageMeta}>
-            <Text style={styles.messageTime}>
-              {new Date(item.createdAt).toLocaleTimeString("ja-JP", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </Text>
-            {childCount > 0 && (
-              <View style={styles.branchBadge}>
-                <Text style={styles.branchBadgeText}>分岐 {childCount}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </Animated.View>
-    </View>
-  );
-}
 
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
@@ -109,6 +33,9 @@ export default function HomeScreen() {
     sendMessage,
     complete,
     resetThought,
+    editNode,
+    removeNode,
+    reorderNodes,
   } = useThought();
   const [inputText, setInputText] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
@@ -118,7 +45,9 @@ export default function HomeScreen() {
     return acc;
   }, {});
 
-  const rootNodes = nodes.filter((n) => n.parentId == null);
+  const sortedRootNodes = nodes
+    .filter((n) => n.parentId == null)
+    .sort((a, b) => a.createdAt - b.createdAt);
 
   const handleSend = async () => {
     if (!inputText.trim()) return;
@@ -165,13 +94,55 @@ export default function HomeScreen() {
     [currentThoughtId, navigation],
   );
 
-  const renderItem = ({ item }: { item: Node }) => (
-    <SwipeableMessage
-      item={item}
-      childCount={childCountMap[item.id] ?? 0}
-      onSwipeLeft={handleSwipeLeft}
-    />
+  const handleEditNode = useCallback(
+    async (node: Node, newText: string) => {
+      await editNode(node.id, newText);
+    },
+    [editNode],
   );
+
+  const handleDeleteNode = useCallback(
+    async (node: Node) => {
+      await removeNode(node.id);
+    },
+    [removeNode],
+  );
+
+  const handleMoveUp = useCallback(
+    async (node: Node) => {
+      const idx = sortedRootNodes.findIndex((n) => n.id === node.id);
+      if (idx <= 0) return;
+      await reorderNodes(sortedRootNodes, idx, idx - 1);
+    },
+    [sortedRootNodes, reorderNodes],
+  );
+
+  const handleMoveDown = useCallback(
+    async (node: Node) => {
+      const idx = sortedRootNodes.findIndex((n) => n.id === node.id);
+      if (idx < 0 || idx >= sortedRootNodes.length - 1) return;
+      await reorderNodes(sortedRootNodes, idx, idx + 1);
+    },
+    [sortedRootNodes, reorderNodes],
+  );
+
+  const renderItem = ({ item, index }: { item: Node; index: number }) => {
+    // FlatListは inverted なので表示順は逆
+    const displayIndex = sortedRootNodes.length - 1 - index;
+    return (
+      <SwipeableMessage
+        item={item}
+        childCount={childCountMap[item.id] ?? 0}
+        onSwipeLeft={handleSwipeLeft}
+        onEdit={handleEditNode}
+        onDelete={handleDeleteNode}
+        onMoveUp={handleMoveUp}
+        onMoveDown={handleMoveDown}
+        canMoveUp={displayIndex > 0}
+        canMoveDown={displayIndex < sortedRootNodes.length - 1}
+      />
+    );
+  };
 
   return (
     <>
@@ -210,7 +181,7 @@ export default function HomeScreen() {
         </View>
 
         <FlatList
-          data={[...rootNodes].reverse()}
+          data={[...sortedRootNodes].reverse()}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderItem}
           contentContainerStyle={styles.messageList}
@@ -285,45 +256,6 @@ const styles = StyleSheet.create({
   },
   completeButtonText: { fontSize: 13, color: "#fff", fontWeight: "700" },
   messageList: { padding: 16, gap: 8 },
-  swipeRow: { position: "relative", marginBottom: 8 },
-  swipeHint: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 64,
-    backgroundColor: "#7c3aed",
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  swipeHintText: { color: "#fff", fontSize: 12, fontWeight: "700" },
-  messageBubble: {
-    backgroundColor: "rgba(255,255,255,0.07)",
-    borderRadius: 16,
-    paddingTop: 12,
-    paddingHorizontal: 12,
-    maxWidth: "80%",
-    alignSelf: "stretch",
-    borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.2)",
-  },
-  messageText: { fontSize: 16, color: "#e2e8f0" },
-  messageMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 4,
-    gap: 8,
-    alignSelf: "flex-end",
-  },
-  messageTime: { fontSize: 11, color: "#64748b" },
-  branchBadge: {
-    backgroundColor: "rgba(167,139,250,0.2)",
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  branchBadgeText: { fontSize: 11, color: "#a78bfa", fontWeight: "600" },
   inputContainer: {
     flexDirection: "row",
     padding: 12,

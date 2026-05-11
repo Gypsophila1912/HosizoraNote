@@ -14,8 +14,14 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { HomeStackParamList } from "@/navigation/types";
 import { useThought } from "@/hooks/useThought";
-import { Node, getNodesByThoughtId } from "@/db/repositories/nodeRepository";
+import {
+  Node,
+  getNodesByThoughtId,
+  updateNodeText,
+  deleteNode as deleteNodeRepo,
+} from "@/db/repositories/nodeRepository";
 import BranchMenuDrawer from "@/components/BranchMenuDrawer";
+import ChildMessageBubble from "@/components/ChildMessageBubble";
 
 type DetailRouteProp = RouteProp<HomeStackParamList, "Detail">;
 type Nav = NativeStackNavigationProp<HomeStackParamList, "Detail">;
@@ -28,13 +34,19 @@ export default function DetailScreen() {
   const thoughtId = route.params?.thoughtId;
   const parentNodeId = route.params?.parentNodeId;
 
-  const { replyToNode, loadChildNodes, loadNodeById } = useThought();
+  const { replyToNode, loadChildNodes, loadNodeById, reorderNodes } = useThought();
+
 
   const [parentNode, setParentNode] = useState<Node | null>(null);
   const [childNodes, setChildNodes] = useState<Node[]>([]);
   const [allNodes, setAllNodes] = useState<Node[]>([]);
   const [inputText, setInputText] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
+
+  // order で昇順ソート
+  const sortedChildNodes = [...childNodes].sort(
+    (a, b) => a.createdAt - b.createdAt,
+  );
 
   useEffect(() => {
     if (thoughtId == null || parentNodeId == null) return;
@@ -59,7 +71,7 @@ export default function DetailScreen() {
     setInputText("");
   }, [inputText, thoughtId, parentNodeId, replyToNode]);
 
-  const handleBranch = useCallback(
+  const handleSwipeLeft = useCallback(
     (node: Node) => {
       if (thoughtId == null) return;
       navigation.push("Detail", { thoughtId, parentNodeId: node.id });
@@ -73,6 +85,44 @@ export default function DetailScreen() {
       navigation.push("Detail", { thoughtId, parentNodeId: nodeId });
     },
     [thoughtId, navigation],
+  );
+
+  const handleEditNode = useCallback(
+    async (node: Node, newText: string) => {
+      await updateNodeText(node.id, newText);
+      const updated = await loadChildNodes(parentNodeId!);
+      setChildNodes(updated);
+    },
+    [loadChildNodes, parentNodeId],
+  );
+
+  const handleDeleteNode = useCallback(
+    async (node: Node) => {
+      await deleteNodeRepo(node.id);
+      const updated = await loadChildNodes(parentNodeId!);
+      setChildNodes(updated);
+    },
+    [loadChildNodes, parentNodeId],
+  );
+
+  const handleMoveUp = useCallback(
+    async (node: Node) => {
+      const idx = sortedChildNodes.findIndex((n) => n.id === node.id);
+      if (idx <= 0) return;
+      const reordered = await reorderNodes(sortedChildNodes, idx, idx - 1);
+      setChildNodes(reordered);
+    },
+    [sortedChildNodes, reorderNodes],
+  );
+
+  const handleMoveDown = useCallback(
+    async (node: Node) => {
+      const idx = sortedChildNodes.findIndex((n) => n.id === node.id);
+      if (idx < 0 || idx >= sortedChildNodes.length - 1) return;
+      const reordered = await reorderNodes(sortedChildNodes, idx, idx + 1);
+      setChildNodes(reordered);
+    },
+    [sortedChildNodes, reorderNodes],
   );
 
   // paramsが取れない場合のフォールバック
@@ -91,26 +141,6 @@ export default function DetailScreen() {
       </SafeAreaView>
     );
   }
-
-  const renderChild = ({ item }: { item: Node }) => (
-    <TouchableOpacity
-      style={styles.messageBubble}
-      onLongPress={() => handleBranch(item)}
-      delayLongPress={400}
-      activeOpacity={0.8}
-    >
-      <Text style={styles.messageText}>{item.text}</Text>
-      <View style={styles.messageMeta}>
-        <Text style={styles.messageTime}>
-          {new Date(item.createdAt).toLocaleTimeString("ja-JP", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </Text>
-        <Text style={styles.longPressHint}>長押しで分岐</Text>
-      </View>
-    </TouchableOpacity>
-  );
 
   return (
     <>
@@ -145,9 +175,23 @@ export default function DetailScreen() {
           </View>
 
           <FlatList
-            data={[...childNodes].reverse()}
+            data={[...sortedChildNodes].reverse()}
             keyExtractor={(item) => item.id.toString()}
-            renderItem={renderChild}
+            renderItem={({ item, index }) => {
+              const displayIndex = sortedChildNodes.length - 1 - index;
+              return (
+                <ChildMessageBubble
+                  item={item}
+                  onSwipeLeft={handleSwipeLeft}
+                  onEdit={handleEditNode}
+                  onDelete={handleDeleteNode}
+                  onMoveUp={handleMoveUp}
+                  onMoveDown={handleMoveDown}
+                  canMoveUp={displayIndex > 0}
+                  canMoveDown={displayIndex < sortedChildNodes.length - 1}
+                />
+              );
+            }}
             contentContainerStyle={styles.messageList}
             inverted
             ListEmptyComponent={
@@ -238,26 +282,6 @@ const styles = StyleSheet.create({
   },
   originText: { fontSize: 14, color: "#e2e8f0", lineHeight: 20 },
   messageList: { padding: 16, gap: 8 },
-  messageBubble: {
-    backgroundColor: "rgba(255,255,255,0.07)",
-    borderRadius: 16,
-    padding: 12,
-    maxWidth: "80%",
-    alignSelf: "flex-end",
-    borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.2)",
-    marginBottom: 8,
-  },
-  messageText: { fontSize: 16, color: "#e2e8f0" },
-  messageMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    marginTop: 4,
-    gap: 8,
-  },
-  messageTime: { fontSize: 11, color: "#64748b" },
-  longPressHint: { fontSize: 10, color: "#475569" },
   emptyContainer: { alignItems: "center", paddingVertical: 48 },
   emptyText: {
     fontSize: 14,
