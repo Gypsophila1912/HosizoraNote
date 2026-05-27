@@ -1,14 +1,17 @@
-import "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { StatusBar } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import AppNavigator from "@/navigation/AppNavigator";
-import { DrizzleProvider } from "@/provider/DrizzleProvider";
 
 export default function App() {
   return (
-    <DrizzleProvider>
-      <SafeAreaProvider>
+    <SafeAreaProvider>
+      <StatusBar barStyle="light-content" backgroundColor="#080c18" />
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: "#080c18" }}
+        edges={["top"]}
+      >
         <AppNavigator />
-      </SafeAreaProvider>
-    </DrizzleProvider>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
