@@ -99,9 +99,10 @@ export default function MiniCalendar({
           return (
             <TouchableOpacity
               key={key}
-              style={[cal.cell, isSelected && cal.selectedCell]}
+              style={cal.cell}
               onPress={() => onSelectDate(cellDate)}
             >
+              {isSelected && <View style={cal.selectionBg} />}
               <Text
                 style={[
                   cal.dayText,
@@ -113,9 +114,13 @@ export default function MiniCalendar({
               >
                 {day}
               </Text>
-              {hasThought && (
-                <View style={[cal.dot, isSelected && cal.dotSelected]} />
-              )}
+              <View
+                style={[
+                  cal.dot,
+                  isSelected && cal.dotSelected,
+                  !hasThought && { backgroundColor: "transparent" },
+                ]}
+              />
             </TouchableOpacity>
           );
         })}
@@ -153,7 +158,14 @@ const cal = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  selectedCell: { backgroundColor: "#a78bfa", borderRadius: 999 },
+  selectionBg: {
+    position: "absolute",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#a78bfa",
+    marginTop: 9,
+  },
   dayText: { fontSize: 13, color: "#e2e8f0" },
   selectedDayText: { color: "#fff", fontWeight: "700" },
   todayText: { color: "#fbbf24", fontWeight: "700" },
