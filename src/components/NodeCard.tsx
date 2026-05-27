@@ -11,11 +11,12 @@ export type LayoutNode = {
   children: LayoutNode[];
 };
 
-type Props = { ln: LayoutNode };
+type Props = { ln: LayoutNode; tagColorMap?: Record<number, string> };
 
-export default function NodeCard({ ln }: Props) {
+export default function NodeCard({ ln, tagColorMap }: Props) {
   const { node, x, y } = ln;
   const isRoot = node.parentId == null;
+  const tagColor = node.tagId && tagColorMap ? tagColorMap[node.tagId] : null;
 
   return (
     <View
@@ -29,6 +30,13 @@ export default function NodeCard({ ln }: Props) {
           height: NODE_H,
         },
         isRoot && card.rootBox,
+        tagColor ? { 
+          backgroundColor: `${tagColor}25`,
+          borderColor: tagColor,
+          borderWidth: 1.5,
+          borderLeftWidth: 4,
+          borderLeftColor: tagColor,
+        } : null,
       ]}
     >
       <Text style={[card.text, isRoot && card.rootText]} numberOfLines={3}>
