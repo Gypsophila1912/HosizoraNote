@@ -5,22 +5,35 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useState, useEffect, useCallback } from "react";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import {
+  useNavigation,
+  useFocusEffect,
+  CompositeNavigationProp,
+} from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { ThoughtSelectStackParamList } from "@/navigation/types";
+import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons";
+import { ThoughtSelectStackParamList, TabParamList } from "@/navigation/types";
 import {
   getThoughtsByDate,
   getAllThoughtDates,
+  deleteThought,
   Thought,
 } from "@/db/repositories/thoughtRepository";
+import {
+  getNodesByThoughtId,
+  deleteNodesByThoughtId,
+} from "@/db/repositories/nodeRepository";
+import { useThoughtStore } from "@/store/useThoughtStore";
 import MiniCalendar from "@/components/MiniCalendar";
 import ThoughtListItem from "@/components/ThoughtListItem";
 
-type Nav = NativeStackNavigationProp<
-  ThoughtSelectStackParamList,
-  "ThoughtSelect"
+type Nav = CompositeNavigationProp<
+  NativeStackNavigationProp<ThoughtSelectStackParamList, "ThoughtSelect">,
+  BottomTabNavigationProp<TabParamList>
 >;
 
 function toDateKey(ms: number): string {
@@ -37,26 +50,99 @@ export default function ThoughtSelectScreen() {
   const [loading, setLoading] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(true);
 
-  // タブに戻るたびにマーク日付を再取得
+  // 削除モード用
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  // 状態復元用
+  const setCurrentThoughtId = useThoughtStore((s) => s.setCurrentThoughtId);
+  const setTitle = useThoughtStore((s) => s.setTitle);
+  const setNodes = useThoughtStore((s) => s.setNodes);
+
+  // タブに戻るたび、または日付が変わるたびにデータを再取得
   useFocusEffect(
     useCallback(() => {
-      getAllThoughtDates().then((msList) => {
-        const keys = new Set(msList.map(toDateKey));
-        setMarkedDates(keys);
-      });
-    }, []),
-  );
+      let isActive = true;
 
-  // 日付が変わるたびにthought一覧を取得
-  useEffect(() => {
-    setLoading(true);
-    getThoughtsByDate(selectedDate)
-      .then(setThoughts)
-      .finally(() => setLoading(false));
-  }, [selectedDate]);
+      const fetchData = async () => {
+        setLoading(true);
+        try {
+          const [msList, updatedThoughts] = await Promise.all([
+            getAllThoughtDates(),
+            getThoughtsByDate(selectedDate),
+          ]);
+          if (isActive) {
+            setMarkedDates(new Set(msList.map(toDateKey)));
+            setThoughts(updatedThoughts);
+          }
+        } finally {
+          if (isActive) setLoading(false);
+        }
+      };
+
+      fetchData();
+
+      return () => {
+        isActive = false;
+      };
+    }, [selectedDate]),
+  );
 
   const handleSelectThought = (thought: Thought) => {
     navigation.push("ThoughtView", { thoughtId: thought.id });
+  };
+
+  const handleToggleSelect = (thought: Thought) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(thought.id)) next.delete(thought.id);
+      else next.add(thought.id);
+      return next;
+    });
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    Alert.alert(
+      "削除の確認",
+      `選択した${selectedIds.size}件の記録を削除しますか？\nこの操作は取り消せません。`,
+      [
+        { text: "キャンセル", style: "cancel" },
+        {
+          text: "削除",
+          style: "destructive",
+          onPress: async () => {
+            setLoading(true);
+            for (const id of selectedIds) {
+              await deleteNodesByThoughtId(id);
+              await deleteThought(id);
+            }
+            setSelectedIds(new Set());
+            setIsDeleteMode(false);
+            
+            // カレンダーとリストを再取得
+            const msList = await getAllThoughtDates();
+            setMarkedDates(new Set(msList.map(toDateKey)));
+            const updatedThoughts = await getThoughtsByDate(selectedDate);
+            setThoughts(updatedThoughts);
+            setLoading(false);
+          },
+        },
+      ],
+    );
+  };
+
+  const handleEdit = async (thought: Thought) => {
+    setLoading(true);
+    try {
+      const loadedNodes = await getNodesByThoughtId(thought.id);
+      setCurrentThoughtId(thought.id);
+      setTitle(thought.title || "");
+      setNodes(loadedNodes);
+      navigation.navigate("Home");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDate = (date: Date) =>
@@ -66,7 +152,43 @@ export default function ThoughtSelectScreen() {
     <View style={styles.container}>
       {/* 上半分：thought一覧 */}
       <View style={styles.listArea}>
-        <Text style={styles.dateLabel}>{formatDate(selectedDate)}</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.dateLabel}>{formatDate(selectedDate)}</Text>
+          {isDeleteMode ? (
+            <View style={styles.deleteModeActions}>
+              <TouchableOpacity
+                style={styles.cancelDeleteButton}
+                onPress={() => {
+                  setIsDeleteMode(false);
+                  setSelectedIds(new Set());
+                }}
+              >
+                <Text style={styles.cancelDeleteText}>キャンセル</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.executeDeleteButton,
+                  selectedIds.size === 0 && styles.disabledButton,
+                ]}
+                onPress={handleDeleteSelected}
+                disabled={selectedIds.size === 0}
+              >
+                <Text style={styles.executeDeleteText}>
+                  削除 ({selectedIds.size})
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            thoughts.length > 0 && (
+              <TouchableOpacity
+                style={styles.enterDeleteButton}
+                onPress={() => setIsDeleteMode(true)}
+              >
+                <Ionicons name="trash-outline" size={20} color="#ef4444" />
+              </TouchableOpacity>
+            )
+          )}
+        </View>
 
         {loading ? (
           <ActivityIndicator color="#5C6BC0" style={{ marginTop: 24 }} />
@@ -75,12 +197,19 @@ export default function ThoughtSelectScreen() {
             <Text style={styles.emptyText}>この日の記録はありません</Text>
           </View>
         ) : (
-          <FlatList
-            data={thoughts}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-              <ThoughtListItem item={item} onPress={handleSelectThought} />
-            )}
+            <FlatList
+              data={thoughts}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <ThoughtListItem
+                  item={item}
+                  isDeleteMode={isDeleteMode}
+                  isSelected={selectedIds.has(item.id)}
+                  onPress={handleSelectThought}
+                  onToggleSelect={handleToggleSelect}
+                  onEdit={handleEdit}
+                />
+              )}
             contentContainerStyle={styles.listContent}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
           />
@@ -119,12 +248,50 @@ export default function ThoughtSelectScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#080c18" },
   listArea: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
   dateLabel: {
     fontSize: 15,
     fontWeight: "700",
     color: "#a78bfa",
-    marginBottom: 10,
     letterSpacing: 0.5,
+  },
+  deleteModeActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  enterDeleteButton: {
+    padding: 4,
+  },
+  cancelDeleteButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  cancelDeleteText: {
+    color: "#64748b",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  executeDeleteButton: {
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.5)",
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  executeDeleteText: {
+    color: "#ef4444",
+    fontSize: 13,
+    fontWeight: "600",
   },
   emptyContainer: {
     flex: 1,
