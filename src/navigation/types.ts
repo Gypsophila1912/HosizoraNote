@@ -10,10 +10,9 @@ export type TabParamList = {
 };
 
 export type HomeStackParamList = {
-  Home: undefined;
-  Detail: {
-    thoughtId: number;
-    parentNodeId: number;
+  Chat: {
+    thoughtId?: number;
+    parentNodeId?: number;
     createNewBranch?: boolean;
     threadRootId?: number;
   };

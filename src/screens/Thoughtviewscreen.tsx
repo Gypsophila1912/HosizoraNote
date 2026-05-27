@@ -75,6 +75,14 @@ export default function ThoughtViewScreen() {
     setNodes(loadedNodes);
   };
 
+  const navigateToChat = (parentNodeId?: number, threadRootId?: number) => {
+    if (!thought) return;
+    (navigation as any).navigate("HomeTab", {
+      screen: "Chat",
+      params: { thoughtId: thought.id, parentNodeId, threadRootId },
+    });
+  };
+
   useEffect(() => {
     (async () => {
       setLoading(true);
