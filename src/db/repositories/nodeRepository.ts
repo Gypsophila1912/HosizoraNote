@@ -8,6 +8,7 @@ export const addNode = async (
   thoughtId: number,
   text: string,
   parentId?: number,
+  tagId?: number | null,
 ): Promise<Node> => {
   const result = await db
     .insert(nodesTable)
@@ -15,6 +16,7 @@ export const addNode = async (
       thoughtId,
       text,
       parentId: parentId ?? null,
+      tagId: tagId ?? null,
       createdAt: Date.now(),
     })
     .returning();

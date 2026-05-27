@@ -44,10 +44,10 @@ export const useThought = () => {
   // useThought.ts
 
   const sendMessage = useCallback(
-    async (text: string, parentId?: number) => {
+    async (text: string, parentId?: number, tagId?: number | null) => {
       if (!text.trim()) return;
       const thoughtId = await ensureThought();
-      await addNode(thoughtId, text, parentId ?? undefined);
+      await addNode(thoughtId, text, parentId ?? undefined, tagId);
       const updated = await getNodesByThoughtId(thoughtId);
       setNodes(updated);
     },
@@ -63,9 +63,10 @@ export const useThought = () => {
       thoughtId: number,
       parentNodeId: number,
       text: string,
+      tagId?: number | null,
     ): Promise<Node[]> => {
       if (!text.trim()) return [];
-      await addNode(thoughtId, text, parentNodeId);
+      await addNode(thoughtId, text, parentNodeId, tagId);
       const children = await getChildNodes(parentNodeId);
       return children;
     },
