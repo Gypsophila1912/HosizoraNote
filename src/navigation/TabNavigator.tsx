@@ -15,13 +15,13 @@ const ICONS: Record<
 > = {
   Home: { focused: "home", outline: "home-outline" },
   ThoughtSelect: { focused: "calendar", outline: "calendar-outline" },
-  Setting: { focused: "settings", outline: "settings-outline" },
+  Setting: { focused: "person", outline: "person-outline" },
 };
 
 const LABELS: Record<keyof TabParamList, string> = {
   Home: "ホーム",
   ThoughtSelect: "きろく",
-  Setting: "設定",
+  Setting: "マイページ",
 };
 
 export default function TabNavigator() {
