@@ -12,6 +12,8 @@ import NodeActionModal, { NodeAction } from "@/components/NodeActionModal";
 
 type Props = {
   item: Node;
+  tagColor?: string | null;
+  tagName?: string | null;
   onSwipeLeft: (node: Node) => void;
   onEdit: (node: Node, newText: string) => void;
   onDelete: (node: Node) => void;
@@ -23,6 +25,8 @@ type Props = {
 
 export default function ChildMessageBubble({
   item,
+  tagColor,
+  tagName,
   onSwipeLeft,
   onEdit,
   onDelete,
@@ -91,7 +95,19 @@ export default function ChildMessageBubble({
             onLongPress={() => setModalVisible(true)}
             delayLongPress={400}
           >
-            <View style={styles.messageBubble}>
+            <View style={[
+              styles.messageBubble,
+              tagColor ? {
+                borderLeftWidth: 4,
+                borderLeftColor: tagColor,
+              } : null,
+            ]}>
+              {tagColor && tagName ? (
+                <View style={[styles.tagBadge, { backgroundColor: `${tagColor}20` }]}>
+                  <View style={[styles.tagDot, { backgroundColor: tagColor }]} />
+                  <Text style={[styles.tagBadgeText, { color: tagColor }]}>{tagName}</Text>
+                </View>
+              ) : null}
               <Text style={styles.messageText}>{item.text}</Text>
               <View style={styles.messageMeta}>
                 <Text style={styles.messageTime}>
@@ -151,4 +167,23 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
   },
   messageTime: { fontSize: 11, color: "#64748b" },
+  tagBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 6,
+    gap: 5,
+  },
+  tagDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  tagBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
 });

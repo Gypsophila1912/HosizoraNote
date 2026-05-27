@@ -9,7 +9,7 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 import { useState, useCallback } from "react";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { HomeStackParamList, TabParamList } from "@/navigation/types";
@@ -17,6 +17,8 @@ import { useThought } from "@/hooks/useThought";
 import { Node } from "@/db/repositories/nodeRepository";
 import BranchMenuDrawer from "@/components/BranchMenuDrawer";
 import SwipeableMessage from "@/components/SwipeableMessage";
+import TagSelector from "@/components/TagSelector";
+import { getAllTags, Tag } from "@/db/repositories/tagRepository";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, "Home"> &
@@ -39,6 +41,27 @@ export default function HomeScreen() {
   } = useThought();
   const [inputText, setInputText] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
+  const [selectedTagId, setSelectedTagId] = useState<number | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [tags, setTags] = useState<Tag[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        try { setTags(await getAllTags()); } catch {}
+      })();
+    }, []),
+  );
+
+  const tagColorMap = tags.reduce<Record<number, string>>((acc, t) => {
+    acc[t.id] = t.color;
+    return acc;
+  }, {});
+
+  const tagNameMap = tags.reduce<Record<number, string>>((acc, t) => {
+    acc[t.id] = t.name;
+    return acc;
+  }, {});
 
   const childCountMap = nodes.reduce<Record<number, number>>((acc, n) => {
     if (n.parentId != null) acc[n.parentId] = (acc[n.parentId] ?? 0) + 1;
@@ -51,8 +74,9 @@ export default function HomeScreen() {
 
   const handleSend = async () => {
     if (!inputText.trim()) return;
-    await sendMessage(inputText);
+    await sendMessage(inputText, undefined, selectedTagId);
     setInputText("");
+    setSelectedTagId(null);
   };
 
   const handleComplete = async () => {
@@ -133,6 +157,8 @@ export default function HomeScreen() {
       <SwipeableMessage
         item={item}
         childCount={childCountMap[item.id] ?? 0}
+        tagColor={item.tagId ? tagColorMap[item.tagId] : null}
+        tagName={item.tagId ? tagNameMap[item.tagId] : null}
         onSwipeLeft={handleSwipeLeft}
         onEdit={handleEditNode}
         onDelete={handleDeleteNode}
@@ -188,18 +214,24 @@ export default function HomeScreen() {
           inverted
         />
 
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="メッセージを入力..."
-            multiline
+        <TagSelector
+            selectedTagId={selectedTagId}
+            onSelectTag={setSelectedTagId}
           />
-          <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-            <Text style={styles.sendButtonText}>送信</Text>
-          </TouchableOpacity>
-        </View>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="メッセージを入力..."
+              multiline
+              onFocus={() => setKeyboardVisible(true)}
+              onBlur={() => setKeyboardVisible(false)}
+            />
+            <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
+              <Text style={styles.sendButtonText}>送信</Text>
+            </TouchableOpacity>
+          </View>
       </KeyboardAvoidingView>
 
       <BranchMenuDrawer

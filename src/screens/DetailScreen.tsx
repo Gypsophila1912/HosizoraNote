@@ -10,7 +10,7 @@ import {
   SafeAreaView,
 } from "react-native";
 import { useState, useEffect, useCallback } from "react";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { HomeStackParamList } from "@/navigation/types";
 import { useThought } from "@/hooks/useThought";
@@ -22,6 +22,8 @@ import {
 } from "@/db/repositories/nodeRepository";
 import BranchMenuDrawer from "@/components/BranchMenuDrawer";
 import ChildMessageBubble from "@/components/ChildMessageBubble";
+import TagSelector from "@/components/TagSelector";
+import { getAllTags, Tag } from "@/db/repositories/tagRepository";
 
 type DetailRouteProp = RouteProp<HomeStackParamList, "Detail">;
 type Nav = NativeStackNavigationProp<HomeStackParamList, "Detail">;
@@ -42,6 +44,21 @@ export default function DetailScreen() {
   const [allNodes, setAllNodes] = useState<Node[]>([]);
   const [inputText, setInputText] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
+  const [selectedTagId, setSelectedTagId] = useState<number | null>(null);
+  const [tags, setTags] = useState<Tag[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        try { setTags(await getAllTags()); } catch {}
+      })();
+    }, []),
+  );
+
+  const tagColorMap = tags.reduce<Record<number, string>>((acc, t) => {
+    acc[t.id] = t.color;
+    return acc;
+  }, {});
 
   // order で昇順ソート
   const sortedChildNodes = [...childNodes].sort(
@@ -64,12 +81,13 @@ export default function DetailScreen() {
 
   const handleSend = useCallback(async () => {
     if (!inputText.trim() || thoughtId == null || parentNodeId == null) return;
-    const updated = await replyToNode(thoughtId, parentNodeId, inputText);
+    const updated = await replyToNode(thoughtId, parentNodeId, inputText, selectedTagId);
     setChildNodes(updated);
     const all = await getNodesByThoughtId(thoughtId);
     setAllNodes(all);
     setInputText("");
-  }, [inputText, thoughtId, parentNodeId, replyToNode]);
+    setSelectedTagId(null);
+  }, [inputText, thoughtId, parentNodeId, replyToNode, selectedTagId]);
 
   const handleSwipeLeft = useCallback(
     (node: Node) => {
@@ -182,6 +200,7 @@ export default function DetailScreen() {
               return (
                 <ChildMessageBubble
                   item={item}
+                  tagColor={item.tagId ? tagColorMap[item.tagId] : null}
                   onSwipeLeft={handleSwipeLeft}
                   onEdit={handleEditNode}
                   onDelete={handleDeleteNode}
@@ -203,6 +222,10 @@ export default function DetailScreen() {
             }
           />
 
+          <TagSelector
+            selectedTagId={selectedTagId}
+            onSelectTag={setSelectedTagId}
+          />
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
