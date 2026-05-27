@@ -14,6 +14,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ThoughtSelectStackParamList } from "@/navigation/types";
 import { getNodesByThoughtId, Node } from "@/db/repositories/nodeRepository";
 import { Thought } from "@/db/repositories/thoughtRepository";
+import { getAllTags, Tag } from "@/db/repositories/tagRepository";
 import { db } from "@/db/index";
 import { thoughtsTable } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -46,6 +47,7 @@ export default function ThoughtViewScreen() {
 
   const [thought, setThought] = useState<Thought | null>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
 
   // 要約モーダル用
@@ -63,7 +65,12 @@ export default function ThoughtViewScreen() {
           .where(eq(thoughtsTable.id, thoughtId));
         const t = rows[0] ?? null;
         setThought(t);
-        setNodes(await getNodesByThoughtId(thoughtId));
+        const [loadedNodes, loadedTags] = await Promise.all([
+          getNodesByThoughtId(thoughtId),
+          getAllTags()
+        ]);
+        setNodes(loadedNodes);
+        setTags(loadedTags);
         if (t?.title?.trim()) navigation.setOptions({ title: t.title });
       } finally {
         setLoading(false);
@@ -161,6 +168,10 @@ export default function ThoughtViewScreen() {
         allLayoutNodes={allLayoutNodes}
         allEdges={allEdges}
         mainChildIds={new Set()}
+        tagColorMap={tags.reduce<Record<number, string>>((acc, t) => {
+          acc[t.id] = t.color;
+          return acc;
+        }, {})}
       />
       <SummarizeModal
         visible={modalVisible}

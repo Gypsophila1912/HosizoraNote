@@ -20,6 +20,7 @@ type Props = {
   allLayoutNodes: LayoutNode[];
   allEdges: Edge[];
   mainChildIds: Set<number>;
+  tagColorMap?: Record<number, string>;
 };
 
 export default function ZoomableCanvas({
@@ -27,6 +28,7 @@ export default function ZoomableCanvas({
   canvasH,
   allLayoutNodes,
   allEdges,
+  tagColorMap,
 }: Props) {
   const baseScale = useRef(1);
   const baseTx = useRef(0);
@@ -126,7 +128,7 @@ export default function ZoomableCanvas({
                   <ConnectorLine key={i} {...e} />
                 ))}
                 {allLayoutNodes.map((ln) => (
-                  <NodeCard key={ln.node.id} ln={ln} />
+                  <NodeCard key={ln.node.id} ln={ln} tagColorMap={tagColorMap} />
                 ))}
               </Animated.View>
             </Animated.View>
