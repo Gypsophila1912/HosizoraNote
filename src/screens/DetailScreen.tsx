@@ -7,8 +7,8 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -19,6 +19,7 @@ import {
   getNodesByThoughtId,
   updateNodeText,
   deleteNode as deleteNodeRepo,
+  reparentNodeChildren,
 } from "@/db/repositories/nodeRepository";
 import BranchMenuDrawer from "@/components/BranchMenuDrawer";
 import ChildMessageBubble from "@/components/ChildMessageBubble";
@@ -36,12 +37,12 @@ export default function DetailScreen() {
   const thoughtId = route.params?.thoughtId;
   const parentNodeId = route.params?.parentNodeId;
 
-  const { replyToNode, loadChildNodes, loadNodeById, reorderNodes } = useThought();
+  const { nodes, refreshNodes, replyToNode, loadChildNodes, loadNodeById, reorderNodes } = useThought();
 
 
   const [parentNode, setParentNode] = useState<Node | null>(null);
   const [childNodes, setChildNodes] = useState<Node[]>([]);
-  const [allNodes, setAllNodes] = useState<Node[]>([]);
+  const [activeThreadRootId, setActiveThreadRootId] = useState<number | null>(route.params?.threadRootId ?? null);
   const [inputText, setInputText] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
   const [selectedTagId, setSelectedTagId] = useState<number | null>(null);
@@ -68,39 +69,57 @@ export default function DetailScreen() {
   useEffect(() => {
     if (thoughtId == null || parentNodeId == null) return;
     (async () => {
-      const [parent, children, all] = await Promise.all([
-        loadNodeById(parentNodeId),
-        loadChildNodes(parentNodeId),
-        getNodesByThoughtId(thoughtId),
-      ]);
+      const parent = await loadNodeById(parentNodeId);
       setParentNode(parent);
-      setChildNodes(children);
-      setAllNodes(all);
+      
+      if (route.params?.createNewBranch && activeThreadRootId === null) {
+        setChildNodes([]);
+      } else {
+        const rootId = activeThreadRootId ?? parentNodeId;
+        const includeStartNode = activeThreadRootId !== null;
+        const children = await loadChildNodes(rootId, includeStartNode);
+        setChildNodes(children);
+      }
     })();
-  }, [parentNodeId, thoughtId]);
+  }, [parentNodeId, thoughtId, route.params?.createNewBranch, activeThreadRootId, loadChildNodes, loadNodeById]);
 
   const handleSend = useCallback(async () => {
     if (!inputText.trim() || thoughtId == null || parentNodeId == null) return;
-    const updated = await replyToNode(thoughtId, parentNodeId, inputText, selectedTagId);
-    setChildNodes(updated);
-    const all = await getNodesByThoughtId(thoughtId);
-    setAllNodes(all);
+    
+    const targetParentId = childNodes.length > 0 ? childNodes[childNodes.length - 1].id : parentNodeId;
+    const newNode = await replyToNode(thoughtId, targetParentId, inputText, selectedTagId);
+    
+    if (newNode) {
+      let rootId = activeThreadRootId;
+      let isNewThreadRoot = false;
+      if (route.params?.createNewBranch && activeThreadRootId === null) {
+        setActiveThreadRootId(newNode.id);
+        rootId = newNode.id;
+        isNewThreadRoot = true;
+      } else {
+        rootId = rootId ?? parentNodeId;
+      }
+      
+      const includeStartNode = activeThreadRootId !== null || isNewThreadRoot;
+      const updated = await loadChildNodes(rootId!, includeStartNode);
+      setChildNodes(updated);
+    }
+    
     setInputText("");
-    setSelectedTagId(null);
-  }, [inputText, thoughtId, parentNodeId, replyToNode, selectedTagId]);
+  }, [inputText, thoughtId, parentNodeId, childNodes, activeThreadRootId, route.params?.createNewBranch, replyToNode, selectedTagId, loadChildNodes]);
 
   const handleSwipeLeft = useCallback(
     (node: Node) => {
       if (thoughtId == null) return;
-      navigation.push("Detail", { thoughtId, parentNodeId: node.id });
+      navigation.push("Detail", { thoughtId, parentNodeId: node.id, createNewBranch: true });
     },
     [thoughtId, navigation],
   );
 
   const handleSelectBranch = useCallback(
-    (nodeId: number) => {
+    (parentNodeId: number, threadRootId?: number) => {
       if (thoughtId == null) return;
-      navigation.push("Detail", { thoughtId, parentNodeId: nodeId });
+      navigation.push("Detail", { thoughtId, parentNodeId, threadRootId });
     },
     [thoughtId, navigation],
   );
@@ -108,19 +127,26 @@ export default function DetailScreen() {
   const handleEditNode = useCallback(
     async (node: Node, newText: string) => {
       await updateNodeText(node.id, newText);
-      const updated = await loadChildNodes(parentNodeId!);
+      const rootId = activeThreadRootId ?? parentNodeId;
+      const includeStartNode = activeThreadRootId !== null;
+      const updated = await loadChildNodes(rootId!, includeStartNode);
       setChildNodes(updated);
+      await refreshNodes();
     },
-    [loadChildNodes, parentNodeId],
+    [loadChildNodes, parentNodeId, activeThreadRootId, refreshNodes],
   );
 
   const handleDeleteNode = useCallback(
     async (node: Node) => {
+      await reparentNodeChildren(node.id, node.parentId);
       await deleteNodeRepo(node.id);
-      const updated = await loadChildNodes(parentNodeId!);
+      const rootId = activeThreadRootId ?? parentNodeId;
+      const includeStartNode = activeThreadRootId !== null;
+      const updated = await loadChildNodes(rootId!, includeStartNode);
       setChildNodes(updated);
+      await refreshNodes();
     },
-    [loadChildNodes, parentNodeId],
+    [loadChildNodes, parentNodeId, activeThreadRootId, refreshNodes],
   );
 
   const handleMoveUp = useCallback(
@@ -244,7 +270,7 @@ export default function DetailScreen() {
       <BranchMenuDrawer
         visible={menuVisible}
         onClose={() => setMenuVisible(false)}
-        allNodes={allNodes}
+        allNodes={nodes}
         onSelectBranch={handleSelectBranch}
       />
     </>

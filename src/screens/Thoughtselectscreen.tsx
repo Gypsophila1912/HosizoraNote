@@ -139,7 +139,7 @@ export default function ThoughtSelectScreen() {
       setCurrentThoughtId(thought.id);
       setTitle(thought.title || "");
       setNodes(loadedNodes);
-      navigation.navigate("Home");
+      navigation.navigate("HomeTab" as any);
     } finally {
       setLoading(false);
     }

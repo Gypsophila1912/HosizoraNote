@@ -4,9 +4,9 @@ export type RootStackParamList = {
 };
 
 export type TabParamList = {
-  Home: undefined;
-  ThoughtSelect: undefined;
-  Setting: undefined;
+  HomeTab: undefined;
+  ThoughtSelectTab: undefined;
+  SettingTab: undefined;
 };
 
 export type HomeStackParamList = {
@@ -14,6 +14,8 @@ export type HomeStackParamList = {
   Detail: {
     thoughtId: number;
     parentNodeId: number;
+    createNewBranch?: boolean;
+    threadRootId?: number;
   };
 };
 

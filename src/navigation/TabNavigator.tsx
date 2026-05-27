@@ -13,15 +13,15 @@ const ICONS: Record<
   keyof TabParamList,
   { focused: IoniconsName; outline: IoniconsName }
 > = {
-  Home: { focused: "home", outline: "home-outline" },
-  ThoughtSelect: { focused: "calendar", outline: "calendar-outline" },
-  Setting: { focused: "person", outline: "person-outline" },
+  HomeTab: { focused: "home", outline: "home-outline" },
+  ThoughtSelectTab: { focused: "calendar", outline: "calendar-outline" },
+  SettingTab: { focused: "person", outline: "person-outline" },
 };
 
 const LABELS: Record<keyof TabParamList, string> = {
-  Home: "ホーム",
-  ThoughtSelect: "きろく",
-  Setting: "マイページ",
+  HomeTab: "ホーム",
+  ThoughtSelectTab: "きろく",
+  SettingTab: "マイページ",
 };
 
 export default function TabNavigator() {
@@ -53,12 +53,12 @@ export default function TabNavigator() {
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeStackNavigator} />
+      <Tab.Screen name="HomeTab" component={HomeStackNavigator} />
       <Tab.Screen
-        name="ThoughtSelect"
+        name="ThoughtSelectTab"
         component={ThoughtSelectStackNavigator}
       />
-      <Tab.Screen name="Setting" component={SettingStackNavigator} />
+      <Tab.Screen name="SettingTab" component={SettingStackNavigator} />
     </Tab.Navigator>
   );
 }

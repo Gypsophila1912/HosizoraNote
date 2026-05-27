@@ -17,7 +17,7 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   allNodes: Node[];
-  onSelectBranch: (nodeId: number) => void;
+  onSelectBranch: (parentNodeId: number, threadRootId?: number) => void;
 };
 
 const DRAWER_WIDTH = Math.min(Dimensions.get("window").width * 0.72, 300);
@@ -33,13 +33,14 @@ export default function BranchMenuDrawer({
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (visible) {
-      NavigationBar.setBackgroundColorAsync("#0d1225");
-      NavigationBar.setButtonStyleAsync("light");
-    } else {
-      NavigationBar.setBackgroundColorAsync("#080c18");
-      NavigationBar.setButtonStyleAsync("light");
-    }
+    // Edge-to-edgeが有効な場合、setBackgroundColorAsyncは非対応の警告が出るため無効化
+    // if (visible) {
+    //   NavigationBar.setBackgroundColorAsync("#0d1225");
+    //   NavigationBar.setButtonStyleAsync("light");
+    // } else {
+    //   NavigationBar.setBackgroundColorAsync("#080c18");
+    //   NavigationBar.setButtonStyleAsync("light");
+    // }
   }, [visible]);
 
   useEffect(() => {
@@ -72,10 +73,34 @@ export default function BranchMenuDrawer({
     }
   }, [visible]);
 
-  const parentIdSet = new Set(
-    allNodes.map((n) => n.parentId).filter((id): id is number => id !== null),
-  );
-  const branchOrigins = allNodes.filter((n) => parentIdSet.has(n.id));
+  const childMap: Record<number, Node[]> = {};
+  allNodes.forEach((n) => {
+    if (n.parentId !== null) {
+      (childMap[n.parentId] ??= []).push(n);
+    }
+  });
+
+  const branchRootNodes: Node[] = [];
+
+  allNodes.forEach((n) => {
+    if (n.parentId === null) return;
+
+    const siblings = childMap[n.parentId] || [];
+    const sortedSiblings = siblings.slice().sort((a, b) => a.createdAt - b.createdAt);
+
+    const parentNode = allNodes.find(p => p.id === n.parentId);
+    if (!parentNode) return;
+
+    if (parentNode.parentId === null) {
+      branchRootNodes.push(n);
+    } else {
+      if (sortedSiblings.length > 0 && sortedSiblings[0].id !== n.id) {
+        branchRootNodes.push(n);
+      }
+    }
+  });
+
+  branchRootNodes.sort((a, b) => b.createdAt - a.createdAt);
 
   return (
     <Modal
@@ -108,7 +133,7 @@ export default function BranchMenuDrawer({
             </TouchableOpacity>
           </View>
 
-          {branchOrigins.length === 0 ? (
+          {branchRootNodes.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
                 まだ分岐はありません。{"\n"}
@@ -117,7 +142,7 @@ export default function BranchMenuDrawer({
             </View>
           ) : (
             <FlatList
-              data={branchOrigins}
+              data={branchRootNodes}
               keyExtractor={(item) => item.id.toString()}
               contentContainerStyle={styles.listContent}
               ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -127,7 +152,7 @@ export default function BranchMenuDrawer({
                   activeOpacity={0.7}
                   onPress={() => {
                     onClose();
-                    onSelectBranch(item.id);
+                    onSelectBranch(item.parentId!, item.id);
                   }}
                 >
                   <View style={styles.branchIcon}>

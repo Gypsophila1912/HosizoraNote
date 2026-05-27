@@ -21,6 +21,10 @@ type Props = {
   allEdges: Edge[];
   mainChildIds: Set<number>;
   tagColorMap?: Record<number, string>;
+  isDeleteMode?: boolean;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (nodeId: number) => void;
+  onEditSave?: (nodeId: number, newText: string) => void;
 };
 
 export default function ZoomableCanvas({
@@ -29,6 +33,10 @@ export default function ZoomableCanvas({
   allLayoutNodes,
   allEdges,
   tagColorMap,
+  isDeleteMode,
+  selectedIds,
+  onToggleSelect,
+  onEditSave,
 }: Props) {
   const baseScale = useRef(1);
   const baseTx = useRef(0);
@@ -128,7 +136,15 @@ export default function ZoomableCanvas({
                   <ConnectorLine key={i} {...e} />
                 ))}
                 {allLayoutNodes.map((ln) => (
-                  <NodeCard key={ln.node.id} ln={ln} tagColorMap={tagColorMap} />
+                  <NodeCard 
+                    key={ln.node.id} 
+                    ln={ln} 
+                    tagColorMap={tagColorMap}
+                    isDeleteMode={isDeleteMode}
+                    isSelected={selectedIds?.has(ln.node.id)}
+                    onToggleSelect={onToggleSelect}
+                    onEditSave={onEditSave}
+                  />
                 ))}
               </Animated.View>
             </Animated.View>

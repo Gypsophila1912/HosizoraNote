@@ -38,6 +38,7 @@ export default function HomeScreen() {
     editNode,
     removeNode,
     reorderNodes,
+    refreshNodes,
   } = useThought();
   const [inputText, setInputText] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
@@ -49,8 +50,9 @@ export default function HomeScreen() {
     useCallback(() => {
       (async () => {
         try { setTags(await getAllTags()); } catch {}
+        try { await refreshNodes(); } catch {}
       })();
-    }, []),
+    }, [refreshNodes]),
   );
 
   const tagColorMap = tags.reduce<Record<number, string>>((acc, t) => {
@@ -76,13 +78,12 @@ export default function HomeScreen() {
     if (!inputText.trim()) return;
     await sendMessage(inputText, undefined, selectedTagId);
     setInputText("");
-    setSelectedTagId(null);
   };
 
   const handleComplete = async () => {
     await complete();
     // 完了後にきろくタブへ遷移
-    navigation.navigate("ThoughtSelect");
+    navigation.navigate("ThoughtSelectTab");
   };
 
   const handleReset = () => {
@@ -102,17 +103,19 @@ export default function HomeScreen() {
       navigation.push("Detail", {
         thoughtId: currentThoughtId,
         parentNodeId: node.id,
+        createNewBranch: true,
       });
     },
     [currentThoughtId, navigation],
   );
 
   const handleSelectBranch = useCallback(
-    (nodeId: number) => {
+    (parentNodeId: number, threadRootId?: number) => {
       if (!currentThoughtId) return;
       navigation.push("Detail", {
         thoughtId: currentThoughtId,
-        parentNodeId: nodeId,
+        parentNodeId,
+        threadRootId,
       });
     },
     [currentThoughtId, navigation],
