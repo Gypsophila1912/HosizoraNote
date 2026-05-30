@@ -1,13 +1,14 @@
 import { View, StyleSheet } from "react-native";
 
-type Edge = { px: number; py: number; cx: number; cy: number };
+type Edge = { px: number; py: number; cx: number; cy: number; isMain?: boolean };
 
-export default function ConnectorLine({ px, py, cx, cy }: Edge) {
+export default function ConnectorLine({ px, py, cx, cy, isMain }: Edge) {
   const midY = (py + cy) / 2;
   const left = Math.min(px, cx);
   const lineW = Math.abs(px - cx);
-  const COLOR = "rgba(167,139,250,0.4)";
-  const T = 1.5;
+  
+  const COLOR = isMain ? "rgba(34,211,238,0.8)" : "rgba(34,211,238,0.3)";
+  const T = isMain ? 3 : 1.5;
   return (
     <>
       <View

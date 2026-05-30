@@ -138,7 +138,7 @@ const cal = StyleSheet.create({
     marginBottom: 6,
   },
   navBtn: { padding: 8 },
-  navText: { fontSize: 16, color: "#a78bfa", fontWeight: "700" },
+  navText: { fontSize: 16, color: "#22d3ee", fontWeight: "700" },
   monthLabel: { fontSize: 15, fontWeight: "700", color: "#e2e8f0" },
   weekRow: { flexDirection: "row", marginBottom: 2 },
   weekLabel: {
@@ -150,7 +150,7 @@ const cal = StyleSheet.create({
     paddingVertical: 2,
   },
   sunday: { color: "#f87171" },
-  saturday: { color: "#a78bfa" },
+  saturday: { color: "#22d3ee" },
   grid: { flexDirection: "row", flexWrap: "wrap" },
   cell: {
     width: `${100 / 7}%`,
@@ -163,7 +163,7 @@ const cal = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#a78bfa",
+    backgroundColor: "#22d3ee",
     marginTop: 9,
   },
   dayText: { fontSize: 13, color: "#e2e8f0" },

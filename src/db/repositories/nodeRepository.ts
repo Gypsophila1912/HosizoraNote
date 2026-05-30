@@ -33,12 +33,30 @@ export const getNodesByThoughtId = async (
     .where(eq(nodesTable.thoughtId, thoughtId));
 };
 
-/** 指定ノードの直接の子ノードを取得（DetailScreen用） */
-export const getChildNodes = async (parentId: number): Promise<Node[]> => {
-  return await db
-    .select()
-    .from(nodesTable)
-    .where(eq(nodesTable.parentId, parentId));
+/** 指定ノードから始まる直列の返信チェーン（常に最初の子を辿る）を取得（DetailScreen用） */
+export const getThreadChain = async (startNodeId: number, includeStartNode = false): Promise<Node[]> => {
+  const chain: Node[] = [];
+  
+  if (includeStartNode) {
+    const startNode = await getNodeById(startNodeId);
+    if (startNode) chain.push(startNode);
+  }
+
+  let currentParentId = startNodeId;
+  while (true) {
+    const children = await db
+      .select()
+      .from(nodesTable)
+      .where(eq(nodesTable.parentId, currentParentId));
+    
+    if (children.length === 0) break;
+    // createdAt昇順でソートして最初の子を採用
+    children.sort((a, b) => a.createdAt - b.createdAt);
+    const firstChild = children[0];
+    chain.push(firstChild);
+    currentParentId = firstChild.id;
+  }
+  return chain;
 };
 
 /** 指定ノード自体を取得（親ノード表示用） */
@@ -78,4 +96,15 @@ export const updateNodeOrders = async (
       db.update(nodesTable).set({ createdAt }).where(eq(nodesTable.id, id)),
     ),
   );
+};
+
+/** 特定の親を持つ子ノードたちの親IDを新しい親IDに一括更新する */
+export const reparentNodeChildren = async (
+  oldParentId: number,
+  newParentId: number | null,
+): Promise<void> => {
+  await db
+    .update(nodesTable)
+    .set({ parentId: newParentId })
+    .where(eq(nodesTable.parentId, oldParentId));
 };

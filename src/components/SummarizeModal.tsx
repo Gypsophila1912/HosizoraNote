@@ -28,7 +28,7 @@ export default function SummarizeModal({
           <Text style={modal.title}>✦ AIによる要約</Text>
           {loading ? (
             <View style={modal.loadingArea}>
-              <ActivityIndicator color="#a78bfa" />
+              <ActivityIndicator color="#22d3ee" />
               <Text style={modal.loadingText}>要約中...</Text>
             </View>
           ) : (
@@ -59,13 +59,13 @@ const modal = StyleSheet.create({
     borderRadius: 16,
     padding: 24,
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.3)",
+    borderColor: "rgba(34,211,238,0.3)",
     maxHeight: "70%",
   },
   title: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#a78bfa",
+    color: "#22d3ee",
     marginBottom: 16,
   },
   loadingArea: {
@@ -87,15 +87,15 @@ const modal = StyleSheet.create({
   },
   closeButton: {
     marginTop: 20,
-    backgroundColor: "rgba(167,139,250,0.15)",
+    backgroundColor: "rgba(34,211,238,0.15)",
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.3)",
+    borderColor: "rgba(34,211,238,0.3)",
   },
   closeButtonText: {
-    color: "#a78bfa",
+    color: "#22d3ee",
     fontSize: 14,
     fontWeight: "600",
   },

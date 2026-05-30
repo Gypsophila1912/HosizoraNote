@@ -199,14 +199,14 @@ export default function SettingScreen() {
 
         {/* ══════ カラータグ セクション ══════ */}
         <View style={styles.sectionHeader}>
-          <Ionicons name="pricetag" size={18} color="#a78bfa" />
+          <Ionicons name="pricetag" size={18} color="#22d3ee" />
           <Text style={styles.sectionTitle}>カラータグ</Text>
           <TouchableOpacity
             style={styles.addButton}
             onPress={openAddTag}
             activeOpacity={0.7}
           >
-            <Ionicons name="add" size={20} color="#a78bfa" />
+            <Ionicons name="add" size={20} color="#22d3ee" />
           </TouchableOpacity>
         </View>
 
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     backgroundColor: "#0d1225",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(167,139,250,0.2)",
+    borderBottomColor: "rgba(34,211,238,0.2)",
   },
   headerTitle: {
     fontSize: 20,
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.12)",
+    borderColor: "rgba(34,211,238,0.12)",
   },
   avatarContainer: {
     position: "relative",
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#0891b2",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 2,
-    borderColor: "rgba(167,139,250,0.35)",
+    borderColor: "rgba(34,211,238,0.35)",
   },
   avatarText: {
     fontSize: 28,
@@ -399,12 +399,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#e2e8f0",
     borderBottomWidth: 2,
-    borderBottomColor: "#a78bfa",
+    borderBottomColor: "#22d3ee",
     paddingVertical: 4,
     textAlign: "center",
   },
   nameSaveBtn: {
-    backgroundColor: "#a78bfa",
+    backgroundColor: "#22d3ee",
     borderRadius: 20,
     width: 36,
     height: 36,
@@ -429,11 +429,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(167,139,250,0.12)",
+    backgroundColor: "rgba(34,211,238,0.12)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.25)",
+    borderColor: "rgba(34,211,238,0.25)",
   },
 
   /* ── タグリスト ── */
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.04)",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.12)",
+    borderColor: "rgba(34,211,238,0.12)",
     overflow: "hidden",
   },
   emptyContainer: {
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 24,
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.2)",
+    borderColor: "rgba(34,211,238,0.2)",
   },
   modalTitle: {
     fontSize: 18,
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.25)",
+    borderColor: "rgba(34,211,238,0.25)",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: "#a78bfa",
+    backgroundColor: "#22d3ee",
     alignItems: "center",
   },
   modalSaveBtnDisabled: {

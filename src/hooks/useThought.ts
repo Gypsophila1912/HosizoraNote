@@ -8,7 +8,7 @@ import {
 import {
   addNode,
   getNodesByThoughtId,
-  getChildNodes,
+  getThreadChain,
   getNodeById,
   deleteNodesByThoughtId,
   updateNodeText,
@@ -55,28 +55,29 @@ export const useThought = () => {
   );
 
   /**
-   * DetailScreen用: parentNodeIdの子として返信を追加し、
-   * そのparentNodeId以下のスレッドノードを返す
+   * DetailScreen用: exactParentId の直接の子として返信を追加し、
+   * 新しく作成されたノードを返す
    */
   const replyToNode = useCallback(
     async (
       thoughtId: number,
-      parentNodeId: number,
+      exactParentId: number,
       text: string,
       tagId?: number | null,
-    ): Promise<Node[]> => {
-      if (!text.trim()) return [];
-      await addNode(thoughtId, text, parentNodeId, tagId);
-      const children = await getChildNodes(parentNodeId);
-      return children;
+    ): Promise<Node | null> => {
+      if (!text.trim()) return null;
+      const newNode = await addNode(thoughtId, text, exactParentId, tagId);
+      const updated = await getNodesByThoughtId(thoughtId);
+      setNodes(updated);
+      return newNode;
     },
-    [],
+    [setNodes],
   );
 
-  /** DetailScreen用: parentNodeIdの子ノード一覧を取得 */
+  /** DetailScreen用: parentNodeIdから始まる直列チェーンを取得 */
   const loadChildNodes = useCallback(
-    async (parentNodeId: number): Promise<Node[]> => {
-      return await getChildNodes(parentNodeId);
+    async (parentNodeId: number, includeStartNode = false): Promise<Node[]> => {
+      return await getThreadChain(parentNodeId, includeStartNode);
     },
     [],
   );
@@ -159,11 +160,18 @@ export const useThought = () => {
     [],
   );
 
+  const refreshNodes = useCallback(async () => {
+    if (currentThoughtId) {
+      const updated = await getNodesByThoughtId(currentThoughtId);
+      setNodes(updated);
+    }
+  }, [currentThoughtId, setNodes]);
+
   return {
+    currentThoughtId,
     title,
     nodes,
     selectedNodeId,
-    setSelectedNodeId,
     changeTitle,
     sendMessage,
     replyToNode,
@@ -171,9 +179,10 @@ export const useThought = () => {
     loadNodeById,
     complete,
     resetThought,
-    currentThoughtId,
     editNode,
     removeNode,
     reorderNodes,
+    setSelectedNodeId,
+    refreshNodes,
   };
 };

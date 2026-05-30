@@ -17,7 +17,7 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   allNodes: Node[];
-  onSelectBranch: (nodeId: number) => void;
+  onSelectBranch: (parentNodeId: number, threadRootId?: number) => void;
 };
 
 const DRAWER_WIDTH = Math.min(Dimensions.get("window").width * 0.72, 300);
@@ -33,13 +33,14 @@ export default function BranchMenuDrawer({
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (visible) {
-      NavigationBar.setBackgroundColorAsync("#0d1225");
-      NavigationBar.setButtonStyleAsync("light");
-    } else {
-      NavigationBar.setBackgroundColorAsync("#080c18");
-      NavigationBar.setButtonStyleAsync("light");
-    }
+    // Edge-to-edgeが有効な場合、setBackgroundColorAsyncは非対応の警告が出るため無効化
+    // if (visible) {
+    //   NavigationBar.setBackgroundColorAsync("#0d1225");
+    //   NavigationBar.setButtonStyleAsync("light");
+    // } else {
+    //   NavigationBar.setBackgroundColorAsync("#080c18");
+    //   NavigationBar.setButtonStyleAsync("light");
+    // }
   }, [visible]);
 
   useEffect(() => {
@@ -72,10 +73,34 @@ export default function BranchMenuDrawer({
     }
   }, [visible]);
 
-  const parentIdSet = new Set(
-    allNodes.map((n) => n.parentId).filter((id): id is number => id !== null),
-  );
-  const branchOrigins = allNodes.filter((n) => parentIdSet.has(n.id));
+  const childMap: Record<number, Node[]> = {};
+  allNodes.forEach((n) => {
+    if (n.parentId !== null) {
+      (childMap[n.parentId] ??= []).push(n);
+    }
+  });
+
+  const branchRootNodes: Node[] = [];
+
+  allNodes.forEach((n) => {
+    if (n.parentId === null) return;
+
+    const siblings = childMap[n.parentId] || [];
+    const sortedSiblings = siblings.slice().sort((a, b) => a.createdAt - b.createdAt);
+
+    const parentNode = allNodes.find(p => p.id === n.parentId);
+    if (!parentNode) return;
+
+    if (parentNode.parentId === null) {
+      branchRootNodes.push(n);
+    } else {
+      if (sortedSiblings.length > 0 && sortedSiblings[0].id !== n.id) {
+        branchRootNodes.push(n);
+      }
+    }
+  });
+
+  branchRootNodes.sort((a, b) => b.createdAt - a.createdAt);
 
   return (
     <Modal
@@ -108,7 +133,7 @@ export default function BranchMenuDrawer({
             </TouchableOpacity>
           </View>
 
-          {branchOrigins.length === 0 ? (
+          {branchRootNodes.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
                 まだ分岐はありません。{"\n"}
@@ -117,7 +142,7 @@ export default function BranchMenuDrawer({
             </View>
           ) : (
             <FlatList
-              data={branchOrigins}
+              data={branchRootNodes}
               keyExtractor={(item) => item.id.toString()}
               contentContainerStyle={styles.listContent}
               ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -127,7 +152,7 @@ export default function BranchMenuDrawer({
                   activeOpacity={0.7}
                   onPress={() => {
                     onClose();
-                    onSelectBranch(item.id);
+                    onSelectBranch(item.parentId!, item.id);
                   }}
                 >
                   <View style={styles.branchIcon}>
@@ -182,8 +207,8 @@ const styles = StyleSheet.create({
     width: DRAWER_WIDTH,
     backgroundColor: "#0d1225",
     borderRightWidth: 1,
-    borderRightColor: "rgba(167,139,250,0.2)",
-    shadowColor: "#a78bfa",
+    borderRightColor: "rgba(34,211,238,0.2)",
+    shadowColor: "#22d3ee",
     shadowOffset: { width: 4, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -201,9 +226,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: "rgba(167,139,250,0.15)",
+    backgroundColor: "rgba(34,211,238,0.15)",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(167,139,250,0.2)",
+    borderBottomColor: "rgba(34,211,238,0.2)",
   },
   drawerTitle: {
     fontSize: 15,
@@ -213,7 +238,7 @@ const styles = StyleSheet.create({
   },
   closeIcon: {
     fontSize: 16,
-    color: "#a78bfa",
+    color: "#22d3ee",
     fontWeight: "600",
   },
   emptyContainer: {
@@ -245,14 +270,14 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(167,139,250,0.15)",
+    backgroundColor: "rgba(34,211,238,0.15)",
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
   branchIconText: {
     fontSize: 14,
-    color: "#a78bfa",
+    color: "#22d3ee",
     fontWeight: "700",
   },
   branchTextWrap: { flex: 1, gap: 3 },
@@ -262,5 +287,5 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   branchNodeTime: { fontSize: 11, color: "#64748b" },
-  chevron: { fontSize: 20, color: "#a78bfa", flexShrink: 0 },
+  chevron: { fontSize: 20, color: "#22d3ee", flexShrink: 0 },
 });
