@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 64,
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#0891b2",
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     alignSelf: "stretch",
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.2)",
+    borderColor: "rgba(34,211,238,0.2)",
   },
   messageText: { fontSize: 16, color: "#e2e8f0" },
   messageMeta: {
@@ -174,12 +174,12 @@ const styles = StyleSheet.create({
   },
   messageTime: { fontSize: 11, color: "#64748b" },
   branchBadge: {
-    backgroundColor: "rgba(167,139,250,0.2)",
+    backgroundColor: "rgba(34,211,238,0.2)",
     borderRadius: 8,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  branchBadgeText: { fontSize: 11, color: "#a78bfa", fontWeight: "600" },
+  branchBadgeText: { fontSize: 11, color: "#22d3ee", fontWeight: "600" },
   tagBadge: {
     flexDirection: "row",
     alignItems: "center",

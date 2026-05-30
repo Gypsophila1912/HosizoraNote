@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(167,139,250,0.2)",
+    borderBottomColor: "rgba(34,211,238,0.2)",
   },
   metaRow: {
     flexDirection: "row",
@@ -52,15 +52,15 @@ const styles = StyleSheet.create({
   metaTitle: { fontSize: 17, fontWeight: "700", color: "#e2e8f0" },
   metaDate: { fontSize: 12, color: "#64748b", marginTop: 4 },
   summarizeButton: {
-    backgroundColor: "rgba(167,139,250,0.15)",
+    backgroundColor: "rgba(34,211,238,0.15)",
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.4)",
+    borderColor: "rgba(34,211,238,0.4)",
     borderRadius: 8,
     paddingVertical: 6,
     paddingHorizontal: 12,
   },
   summarizeButtonText: {
-    color: "#a78bfa",
+    color: "#22d3ee",
     fontSize: 13,
     fontWeight: "600",
   },

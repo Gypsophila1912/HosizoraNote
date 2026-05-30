@@ -7,7 +7,7 @@ export default function ConnectorLine({ px, py, cx, cy, isMain }: Edge) {
   const left = Math.min(px, cx);
   const lineW = Math.abs(px - cx);
   
-  const COLOR = isMain ? "rgba(167,139,250,0.8)" : "rgba(167,139,250,0.3)";
+  const COLOR = isMain ? "rgba(34,211,238,0.8)" : "rgba(34,211,238,0.3)";
   const T = isMain ? 3 : 1.5;
   return (
     <>

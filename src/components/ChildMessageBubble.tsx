@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 64,
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#0891b2",
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     alignSelf: "stretch",
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.2)",
+    borderColor: "rgba(34,211,238,0.2)",
   },
   messageText: { fontSize: 16, color: "#e2e8f0" },
   messageMeta: {

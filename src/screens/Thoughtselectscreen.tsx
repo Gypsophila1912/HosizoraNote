@@ -15,6 +15,7 @@ import {
 } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { ThoughtSelectStackParamList, TabParamList } from "@/navigation/types";
 import {
@@ -43,6 +44,7 @@ function toDateKey(ms: number): string {
 
 export default function ThoughtSelectScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [thoughts, setThoughts] = useState<Thought[]>([]);
@@ -151,7 +153,7 @@ export default function ThoughtSelectScreen() {
   return (
     <View style={styles.container}>
       {/* 上半分：thought一覧 */}
-      <View style={styles.listArea}>
+      <View style={[styles.listArea, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerRow}>
           <Text style={styles.dateLabel}>{formatDate(selectedDate)}</Text>
           {isDeleteMode ? (
@@ -191,7 +193,7 @@ export default function ThoughtSelectScreen() {
         </View>
 
         {loading ? (
-          <ActivityIndicator color="#5C6BC0" style={{ marginTop: 24 }} />
+          <ActivityIndicator color="#22d3ee" style={{ marginTop: 24 }} />
         ) : thoughts.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>この日の記録はありません</Text>
@@ -246,7 +248,7 @@ export default function ThoughtSelectScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#080c18" },
+  container: { flex: 1, backgroundColor: "transparent" },
   listArea: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
   headerRow: {
     flexDirection: "row",
@@ -257,7 +259,7 @@ const styles = StyleSheet.create({
   dateLabel: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#a78bfa",
+    color: "#22d3ee",
     letterSpacing: 0.5,
   },
   deleteModeActions: {
@@ -305,7 +307,7 @@ const styles = StyleSheet.create({
   calendarArea: {
     backgroundColor: "#0d1225",
     borderTopWidth: 1,
-    borderTopColor: "rgba(167,139,250,0.2)",
+    borderTopColor: "rgba(34,211,238,0.2)",
     elevation: 4,
   },
   calendarToggle: {
@@ -319,7 +321,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 3,
     borderRadius: 2,
-    backgroundColor: "rgba(167,139,250,0.3)",
+    backgroundColor: "rgba(34,211,238,0.3)",
   },
   calendarToggleText: {
     fontSize: 12,

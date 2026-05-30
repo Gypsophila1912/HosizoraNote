@@ -11,6 +11,7 @@ import {
 import {
   GestureHandlerRootView,
 } from "react-native-gesture-handler";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ThoughtSelectStackParamList } from "@/navigation/types";
@@ -55,6 +56,7 @@ const SCREEN = Dimensions.get("window");
 export default function ThoughtViewScreen() {
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const { thoughtId } = route.params;
 
   const [thought, setThought] = useState<Thought | null>(null);
@@ -170,7 +172,7 @@ export default function ThoughtViewScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#a78bfa" />
+        <ActivityIndicator color="#22d3ee" />
       </View>
     );
   }
@@ -246,7 +248,7 @@ export default function ThoughtViewScreen() {
   return (
     <GestureHandlerRootView style={styles.container}>
       <View style={styles.headerLayer}>
-        <View style={styles.topActionsRow}>
+        <View style={[styles.topActionsRow, { paddingTop: insets.top + 8 }]}>
           {isDeleteMode ? (
             <View style={styles.deleteModeActions}>
               <TouchableOpacity
@@ -313,7 +315,7 @@ export default function ThoughtViewScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#080c18" },
+  container: { flex: 1, backgroundColor: "transparent" },
   headerLayer: { zIndex: 10, elevation: 10, backgroundColor: "#0d1225" },
   topActionsRow: {
     flexDirection: "row",
@@ -361,7 +363,7 @@ const styles = StyleSheet.create({
   hint: {
     alignItems: "center",
     paddingVertical: 4,
-    backgroundColor: "rgba(167,139,250,0.08)",
+    backgroundColor: "rgba(34,211,238,0.08)",
   },
-  hintText: { fontSize: 11, color: "#a78bfa" },
+  hintText: { fontSize: 11, color: "#22d3ee" },
 });

@@ -91,7 +91,7 @@ export default function NodeCard({
           }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="pencil" size={14} color="#a78bfa" />
+          <Ionicons name="pencil" size={14} color="#22d3ee" />
         </TouchableOpacity>
       )}
 
@@ -125,18 +125,18 @@ const card = StyleSheet.create({
     borderRadius: 10,
     padding: 8,
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.2)",
+    borderColor: "rgba(34,211,238,0.2)",
     justifyContent: "space-between",
   },
   mainBox: {
-    backgroundColor: "rgba(167,139,250,0.15)",
-    borderColor: "rgba(167,139,250,0.5)",
+    backgroundColor: "rgba(34,211,238,0.15)",
+    borderColor: "rgba(34,211,238,0.5)",
   },
   rootBox: {
-    backgroundColor: "rgba(167,139,250,0.35)",
-    borderColor: "#c4b5fd",
+    backgroundColor: "rgba(34,211,238,0.35)",
+    borderColor: "#67e8f9",
     borderWidth: 3,
-    shadowColor: "#a78bfa",
+    shadowColor: "#22d3ee",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 8,
@@ -152,8 +152,8 @@ const card = StyleSheet.create({
     flex: 1,
   },
   time: { fontSize: 10, color: "#64748b", alignSelf: "flex-end" },
-  mainTime: { color: "#c4b5fd" },
-  rootTime: { color: "#c4b5fd" },
+  mainTime: { color: "#67e8f9" },
+  rootTime: { color: "#67e8f9" },
   editButton: {
     position: "absolute",
     top: 4,

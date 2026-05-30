@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: "#0d1225",
     borderTopWidth: 1,
-    borderTopColor: "rgba(167,139,250,0.1)",
+    borderTopColor: "rgba(34,211,238,0.1)",
     paddingVertical: 6,
   },
   scroll: {

@@ -40,11 +40,11 @@ export default function TabNavigator() {
         },
         tabBarLabel: LABELS[route.name],
         headerShown: false,
-        tabBarActiveTintColor: "#a78bfa",
+        tabBarActiveTintColor: "#22d3ee",
         tabBarInactiveTintColor: "#64748b",
         tabBarStyle: {
           backgroundColor: "#0d1225",
-          borderTopColor: "rgba(167,139,250,0.15)",
+          borderTopColor: "rgba(34,211,238,0.15)",
           borderTopWidth: 1,
         },
         tabBarLabelStyle: {

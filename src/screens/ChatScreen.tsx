@@ -32,6 +32,7 @@ import BranchMenuDrawer from "@/components/BranchMenuDrawer";
 import ChildMessageBubble from "@/components/ChildMessageBubble";
 import SwipeableMessage from "@/components/SwipeableMessage";
 import TagSelector from "@/components/TagSelector";
+import ThinkingFog from "@/components/ThinkingFog";
 import { getAllTags, Tag } from "@/db/repositories/tagRepository";
 
 type ChatRouteProp = RouteProp<HomeStackParamList, "Chat">;
@@ -314,8 +315,9 @@ export default function ChatScreen() {
   // Main Mode can have thoughtId == null if it's a completely new, unsaved thought.
   if (!isMainMode && (thoughtId == null || parentNodeId == null)) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <View style={styles.safeArea}>
         <View style={styles.errorContainer}>
+          <ThinkingFog />
           <Text style={styles.errorText}>画面の読み込みに失敗しました。</Text>
           <TouchableOpacity
             style={styles.backButtonMain}
@@ -324,7 +326,7 @@ export default function ChatScreen() {
             <Text style={styles.backButtonText}>戻る</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -366,7 +368,7 @@ export default function ChatScreen() {
 
   return (
     <>
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <View style={styles.safeArea}>
         <KeyboardAvoidingView
           style={styles.container}
           behavior="padding"
@@ -376,8 +378,9 @@ export default function ChatScreen() {
               : insets.bottom - 17
           }
         >
+          <ThinkingFog />
           {/* 全体ヘッダー (タイトル、リセット、完了) */}
-          <View style={styles.globalHeader}>
+          <View style={[styles.globalHeader, { paddingTop: Math.max(insets.top + 4, 12) }]}>
             <TouchableOpacity
               onPress={() => setMenuVisible(true)}
               style={styles.hamburgerButton}
@@ -466,7 +469,7 @@ export default function ChatScreen() {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
 
       <BranchMenuDrawer
         visible={menuVisible}
@@ -480,22 +483,22 @@ export default function ChatScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#080c18" },
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: "#080c18" },
   globalHeader: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#0d1225",
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(167,139,250,0.2)",
+    borderBottomColor: "rgba(34,211,238,0.2)",
     gap: 8,
   },
   hamburgerButton: { justifyContent: "center", paddingRight: 4 },
   hamburgerLine: {
     width: 20,
     height: 2,
-    backgroundColor: "#a78bfa",
+    backgroundColor: "#22d3ee",
     borderRadius: 1,
     marginVertical: 2,
   },
@@ -519,7 +522,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: "#a78bfa",
+    backgroundColor: "#22d3ee",
   },
   completeButtonText: { fontSize: 13, color: "#fff", fontWeight: "700" },
   originRow: {
@@ -529,7 +532,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: "#0d1225",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(167,139,250,0.1)",
+    borderBottomColor: "rgba(34,211,238,0.1)",
   },
   backButton: {
     paddingHorizontal: 12,
@@ -538,22 +541,22 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 28,
-    color: "#a78bfa",
+    color: "#22d3ee",
     lineHeight: 32,
   },
   originContainer: {
     flex: 1,
-    backgroundColor: "rgba(167,139,250,0.05)",
+    backgroundColor: "rgba(34,211,238,0.05)",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.1)",
+    borderColor: "rgba(34,211,238,0.1)",
   },
   originLabel: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#a78bfa",
+    color: "#22d3ee",
     marginBottom: 2,
   },
   originText: {
@@ -579,14 +582,14 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: "#0d1225",
     borderTopWidth: 1,
-    borderTopColor: "rgba(167,139,250,0.15)",
+    borderTopColor: "rgba(34,211,238,0.15)",
     gap: 8,
     alignItems: "flex-end",
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.25)",
+    borderColor: "rgba(34,211,238,0.25)",
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -596,7 +599,7 @@ const styles = StyleSheet.create({
     color: "#e2e8f0",
   },
   sendButton: {
-    backgroundColor: "#a78bfa",
+    backgroundColor: "#22d3ee",
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 10,

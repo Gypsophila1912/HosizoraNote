@@ -5,8 +5,8 @@ export const Colors = {
   bgCardDark: "rgba(255,255,255,0.04)",
 
   // アクセント
-  primary: "#a78bfa", // 星の紫
-  primaryDark: "#7c3aed",
+  primary: "#22d3ee", // 星のシアン
+  primaryDark: "#0891b2",
   gold: "#fbbf24", // 輝く星
 
   // テキスト
@@ -15,7 +15,7 @@ export const Colors = {
   textDim: "#94a3b8",
 
   // ボーダー・区切り
-  border: "rgba(167,139,250,0.2)",
+  border: "rgba(34,211,238,0.2)",
   borderLight: "rgba(255,255,255,0.08)",
 
   // 旧キー（既存コードとの互換）
